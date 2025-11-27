@@ -1,7 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
-import { Menu, X, Home, Settings, ArrowLeft, ArrowRight, RotateCw, ChevronDown } from 'lucide-react';
+import { useState } from 'react';
+import { Menu, X, Home, Settings, ArrowLeft, ArrowRight, RotateCw } from 'lucide-react';
 import SearchBar from './SearchBar';
-import { ProxyConfig, ProxyType, ServerType, TransportType } from '../types/proxy';
 
 interface HeaderProps {
   isProxying: boolean;
@@ -12,8 +11,7 @@ interface HeaderProps {
   onForward: () => void;
   onReload: () => void;
   onHome: () => void;
-  config: ProxyConfig;
-  onConfigChange: (config: Partial<ProxyConfig>) => void;
+  onOpenSettings: () => void;
 }
 
 export default function Header({
@@ -25,22 +23,9 @@ export default function Header({
   onForward,
   onReload,
   onHome,
-  config,
-  onConfigChange
+  onOpenSettings
 }: HeaderProps) {
   const [navOpen, setNavOpen] = useState(false);
-  const [configOpen, setConfigOpen] = useState(false);
-  const configRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (configRef.current && !configRef.current.contains(event.target as Node)) {
-        setConfigOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   return (
     <>
@@ -115,103 +100,14 @@ export default function Header({
             </>
           )}
           
-          {/* Config dropdown */}
-          <div className="relative" ref={configRef}>
-            <button
-              onClick={() => setConfigOpen(!configOpen)}
-              className="h-10 px-3 rounded-lg hover:bg-gray-100 inline-flex items-center gap-1 transition-colors text-sm font-medium"
-            >
-              <span className="hidden sm:inline">{config.proxy}</span>
-              <ChevronDown className="h-4 w-4" />
-            </button>
-            
-            {configOpen && (
-              <div className="absolute right-0 top-12 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-4 space-y-4">
-                {/* Proxy Type */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-2">Proxy Engine</label>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => onConfigChange({ proxy: 'ultraviolet' })}
-                      className={`flex-1 py-2 px-3 text-sm rounded-lg border transition-colors ${
-                        config.proxy === 'ultraviolet'
-                          ? 'bg-gray-900 text-white border-gray-900'
-                          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      Ultraviolet
-                    </button>
-                    <button
-                      onClick={() => onConfigChange({ proxy: 'scramjet' })}
-                      className={`flex-1 py-2 px-3 text-sm rounded-lg border transition-colors ${
-                        config.proxy === 'scramjet'
-                          ? 'bg-gray-900 text-white border-gray-900'
-                          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      Scramjet
-                    </button>
-                  </div>
-                </div>
-
-                {/* Server Type */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-2">Server</label>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => onConfigChange({ server: 'wisp' })}
-                      className={`flex-1 py-2 px-3 text-sm rounded-lg border transition-colors ${
-                        config.server === 'wisp'
-                          ? 'bg-gray-900 text-white border-gray-900'
-                          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      Wisp
-                    </button>
-                    <button
-                      onClick={() => onConfigChange({ server: 'bare' })}
-                      className={`flex-1 py-2 px-3 text-sm rounded-lg border transition-colors ${
-                        config.server === 'bare'
-                          ? 'bg-gray-900 text-white border-gray-900'
-                          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      Bare
-                    </button>
-                  </div>
-                </div>
-
-                {/* Transport (only for Wisp) */}
-                {config.server === 'wisp' && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-2">Transport</label>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => onConfigChange({ transport: 'epoxy' })}
-                        className={`flex-1 py-2 px-3 text-sm rounded-lg border transition-colors ${
-                          config.transport === 'epoxy'
-                            ? 'bg-gray-900 text-white border-gray-900'
-                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                        }`}
-                      >
-                        Epoxy
-                      </button>
-                      <button
-                        onClick={() => onConfigChange({ transport: 'libcurl' })}
-                        className={`flex-1 py-2 px-3 text-sm rounded-lg border transition-colors ${
-                          config.transport === 'libcurl'
-                            ? 'bg-gray-900 text-white border-gray-900'
-                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                        }`}
-                      >
-                        Libcurl
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          {/* Settings button */}
+          <button
+            onClick={onOpenSettings}
+            className="h-10 w-10 rounded-lg hover:bg-gray-100 inline-flex items-center justify-center transition-colors"
+            title="Settings"
+          >
+            <Settings className="h-5 w-5" />
+          </button>
         </div>
       </header>
 
@@ -257,7 +153,10 @@ export default function Header({
               Home
             </button>
             <button
-              onClick={() => setNavOpen(false)}
+              onClick={() => {
+                onOpenSettings();
+                setNavOpen(false);
+              }}
               className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <Settings className="h-5 w-5" />
