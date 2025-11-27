@@ -1,0 +1,38 @@
+{
+  "name": "andromeda",
+  "version": "1.0.0",
+  "description": "A simple web proxy using Ultraviolet and Scramjet",
+  "main": "dist/server/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "preview": "vite preview",
+    "start": "node dist/server/index.js"
+  },
+  "dependencies": {
+    "@mercuryworkshop/bare-mux": "^2.1.8",
+    "@mercuryworkshop/epoxy-transport": "^2.1.28",
+    "@mercuryworkshop/libcurl-transport": "^1.5.1",
+    "@mercuryworkshop/wisp-js": "^0.4.0",
+    "@titaniumnetwork-dev/ultraviolet": "^3.2.10",
+    "express": "^4.21.2",
+    "lucide-react": "^0.511.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "wisp-server-node": "^1.1.8"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.1",
+    "vite-plugin-static-copy": "^2.2.0"
+  }
+}

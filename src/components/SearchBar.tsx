@@ -8,10 +8,6 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
-/**
- * SearchBar component for URL/search input
- * Used in both the header and the main search page
- */
 export default function SearchBar({ 
   value = '', 
   onSearch, 
