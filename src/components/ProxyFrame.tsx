@@ -175,15 +175,25 @@ async function registerServiceWorker(): Promise<void> {
       
       // Wait a bit for the SW to fully initialize
       if (registration.installing) {
-        await new Promise<void>((resolve) => {
+        await new Promise<void>((resolve, reject) => {
           const sw = registration.installing;
           if (!sw) {
             resolve();
             return;
           }
+          
+          // Set a timeout to prevent indefinite waiting
+          const timeout = setTimeout(() => {
+            resolve(); // Resolve anyway after timeout, SW might still work
+          }, 10000);
+          
           sw.addEventListener('statechange', () => {
             if (sw.state === 'activated') {
+              clearTimeout(timeout);
               resolve();
+            } else if (sw.state === 'redundant') {
+              clearTimeout(timeout);
+              reject(new Error('Service worker became redundant'));
             }
           });
         });

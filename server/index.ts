@@ -67,7 +67,8 @@ app.get('/~/scramjet/*', (req: Request, res: Response) => {
 // SPA fallback - serve index.html for all non-file routes
 app.get('*', (req: Request, res: Response) => {
   // Don't serve index.html for API routes or static files with extensions
-  const hasFileExtension = /\.[a-z0-9]+$/i.test(req.path);
+  // Match common file extensions (1-10 characters after the dot)
+  const hasFileExtension = /\.[a-z0-9]{1,10}$/i.test(req.path);
   if (req.path.startsWith('/api/') || hasFileExtension) {
     res.status(404).send('Not Found');
     return;

@@ -153,6 +153,10 @@ export default function SettingsPage({
                 src="/images/andromeda_logo.png" 
                 alt="Andromeda" 
                 className="w-12 h-12"
+                loading="lazy"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
               />
               <div>
                 <h3 className="font-medium text-gray-900">Andromeda</h3>
