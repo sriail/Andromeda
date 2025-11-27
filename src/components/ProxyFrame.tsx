@@ -71,11 +71,16 @@ export default function ProxyFrame({
         }
       }
     } catch {
-      // Cross-origin - use URL as fallback
-      onPageInfoUpdate({ 
-        title: new URL(url).hostname, 
-        favicon: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(url)}&sz=64` 
-      });
+      // Cross-origin - use URL as fallback with local favicon placeholder
+      try {
+        const hostname = new URL(url).hostname;
+        onPageInfoUpdate({ 
+          title: hostname, 
+          favicon: '' // Use empty favicon to avoid leaking URL to external service
+        });
+      } catch {
+        onPageInfoUpdate({ title: 'Page', favicon: '' });
+      }
     }
   };
 
@@ -140,7 +145,12 @@ async function setupTransport(config: ProxyConfig): Promise<void> {
     throw new Error('BareMux not loaded properly');
   }
   
-  const connection = new window.BareMuxConnection('/baremux/worker.js');
+  let connection;
+  try {
+    connection = new window.BareMuxConnection('/baremux/worker.js');
+  } catch (err) {
+    throw new Error(`Failed to create BareMux connection: ${err instanceof Error ? err.message : 'Unknown error'}`);
+  }
 
   if (config.server === 'wisp') {
     const wispUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/wisp/`;
