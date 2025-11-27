@@ -225,7 +225,9 @@ async function setupTransport(config: ProxyConfig): Promise<void> {
   }
 
   if (config.server === 'wisp') {
-    const wispUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/wisp/`;
+    // Use configured wisp server or default to current host
+    const defaultWispUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/wisp/`;
+    const wispUrl = config.wispServer || defaultWispUrl;
     
     if (config.transport === 'epoxy') {
       await connection.setTransport('/epoxy/index.mjs', [{ wisp: wispUrl }]);
