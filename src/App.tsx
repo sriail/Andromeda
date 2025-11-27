@@ -3,10 +3,18 @@ import Header from './components/Header';
 import SearchPage from './components/SearchPage';
 import ProxyFrame from './components/ProxyFrame';
 import SettingsPage from './components/SettingsPage';
-import { ProxyConfig } from './types/proxy';
+import { ProxyConfig, SearchEngine } from './types/proxy';
 import { loadConfig, saveConfig } from './utils/proxySwitcher';
 
 type AppView = 'home' | 'proxy' | 'settings';
+
+const searchEngineUrls: Record<SearchEngine, string> = {
+  google: 'https://www.google.com/search?q=',
+  duckduckgo: 'https://duckduckgo.com/?q=',
+  bing: 'https://www.bing.com/search?q=',
+  yahoo: 'https://search.yahoo.com/search?p=',
+  brave: 'https://search.brave.com/search?q='
+};
 
 export default function App() {
   const [currentView, setCurrentView] = useState<AppView>('home');
@@ -21,6 +29,17 @@ export default function App() {
     saveConfig(config);
   }, [config]);
 
+  // Listen for settings open event from the side menu
+  useEffect(() => {
+    const handleOpenSettingsEvent = () => {
+      setCurrentView('settings');
+    };
+    window.addEventListener('openSettings', handleOpenSettingsEvent);
+    return () => {
+      window.removeEventListener('openSettings', handleOpenSettingsEvent);
+    };
+  }, []);
+
   const handleSearch = useCallback((url: string) => {
     // Normalize the URL
     let normalizedUrl = url.trim();
@@ -29,13 +48,14 @@ export default function App() {
       if (normalizedUrl.includes('.') && !normalizedUrl.includes(' ')) {
         normalizedUrl = 'https://' + normalizedUrl;
       } else {
-        // Treat as search query
-        normalizedUrl = 'https://www.google.com/search?q=' + encodeURIComponent(normalizedUrl);
+        // Treat as search query - use configured search engine
+        const searchUrl = searchEngineUrls[config.searchEngine] || searchEngineUrls.duckduckgo;
+        normalizedUrl = searchUrl + encodeURIComponent(normalizedUrl);
       }
     }
     setProxyUrl(normalizedUrl);
     setCurrentView('proxy');
-  }, []);
+  }, [config.searchEngine]);
 
   const handleBack = useCallback(() => {
     // Will be handled by iframe navigation
@@ -63,10 +83,6 @@ export default function App() {
     setCurrentView('home');
     setProxyUrl('');
     setPageInfo(null);
-  }, []);
-
-  const handleOpenSettings = useCallback(() => {
-    setCurrentView('settings');
   }, []);
 
   const handleSettingsBack = useCallback(() => {
@@ -110,7 +126,6 @@ export default function App() {
         onForward={handleForward}
         onReload={handleReload}
         onHome={handleHome}
-        onOpenSettings={handleOpenSettings}
       />
       
       <main className="flex-1 pt-14">

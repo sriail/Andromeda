@@ -1,4 +1,4 @@
-import { ProxyConfig, ProxyType, ServerType, TransportType } from '../types/proxy';
+import { ProxyConfig, ProxyType, ServerType, TransportType, SearchEngine } from '../types/proxy';
 
 const STORAGE_KEY = 'andromeda_proxy_config';
 
@@ -6,8 +6,20 @@ const STORAGE_KEY = 'andromeda_proxy_config';
 const defaultConfig: ProxyConfig = {
   proxy: 'ultraviolet',
   server: 'wisp',
-  transport: 'epoxy'
+  transport: 'libcurl',
+  searchEngine: 'duckduckgo',
+  wispServer: '',
+  adBlocking: true
 };
+
+/**
+ * Get the default wisp server URL based on current location
+ */
+export function getDefaultWispServer(): string {
+  if (typeof window === 'undefined') return '';
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${location.host}/wisp/`;
+}
 
 /**
  * Load proxy configuration from localStorage
@@ -20,7 +32,10 @@ export function loadConfig(): ProxyConfig {
       return {
         proxy: isValidProxy(parsed.proxy) ? parsed.proxy : defaultConfig.proxy,
         server: isValidServer(parsed.server) ? parsed.server : defaultConfig.server,
-        transport: isValidTransport(parsed.transport) ? parsed.transport : defaultConfig.transport
+        transport: isValidTransport(parsed.transport) ? parsed.transport : defaultConfig.transport,
+        searchEngine: isValidSearchEngine(parsed.searchEngine) ? parsed.searchEngine : defaultConfig.searchEngine,
+        wispServer: typeof parsed.wispServer === 'string' ? parsed.wispServer : defaultConfig.wispServer,
+        adBlocking: typeof parsed.adBlocking === 'boolean' ? parsed.adBlocking : defaultConfig.adBlocking
       };
     }
   } catch {
@@ -115,5 +130,9 @@ function isValidTransport(value: unknown): value is TransportType {
   return value === 'epoxy' || value === 'libcurl';
 }
 
+function isValidSearchEngine(value: unknown): value is SearchEngine {
+  return value === 'google' || value === 'duckduckgo' || value === 'bing' || value === 'yahoo' || value === 'brave';
+}
+
 // Export types for convenience
-export type { ProxyConfig, ProxyType, ServerType, TransportType };
+export type { ProxyConfig, ProxyType, ServerType, TransportType, SearchEngine };

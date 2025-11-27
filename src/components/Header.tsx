@@ -11,7 +11,6 @@ interface HeaderProps {
   onForward: () => void;
   onReload: () => void;
   onHome: () => void;
-  onOpenSettings: () => void;
 }
 
 export default function Header({
@@ -23,7 +22,6 @@ export default function Header({
   onForward,
   onReload,
   onHome,
-  onOpenSettings
 }: HeaderProps) {
   const [navOpen, setNavOpen] = useState(false);
 
@@ -40,7 +38,41 @@ export default function Header({
             <Menu className="text-gray-700 h-6 w-6" />
           </button>
           
-          {isProxying && pageInfo ? (
+          {/* Navigation controls - back, forward, reload */}
+          <button
+            onClick={onBack}
+            className="h-10 w-10 rounded-lg hover:bg-gray-100 inline-flex items-center justify-center transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-700" />
+          </button>
+          <button
+            onClick={onForward}
+            className="h-10 w-10 rounded-lg hover:bg-gray-100 inline-flex items-center justify-center transition-colors"
+          >
+            <ArrowRight className="h-5 w-5 text-gray-700" />
+          </button>
+          <button
+            onClick={onReload}
+            className="h-10 w-10 rounded-lg hover:bg-gray-100 inline-flex items-center justify-center transition-colors"
+          >
+            <RotateCw className="h-5 w-5 text-gray-700" />
+          </button>
+        </div>
+
+        {/* Center section - Search */}
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="w-full max-w-2xl">
+            <SearchBar 
+              value={currentUrl} 
+              onSearch={onSearch} 
+              compact={true}
+            />
+          </div>
+        </div>
+
+        {/* Right section - Page info when proxying */}
+        <div className="flex items-center gap-1 text-gray-700 w-64 justify-end">
+          {isProxying && pageInfo && (
             <div className="flex items-center gap-2">
               {pageInfo.favicon && (
                 <img 
@@ -56,58 +88,7 @@ export default function Header({
                 {pageInfo.title || 'Loading...'}
               </span>
             </div>
-          ) : (
-            <button onClick={onHome} className="flex items-center gap-2">
-              <img src="/images/andromeda_logo.png" alt="Andromeda" className="w-8 h-8" />
-              <h1 className="text-xl font-bold text-gray-900">Andromeda</h1>
-            </button>
           )}
-        </div>
-
-        {/* Center section - Search */}
-        <div className="flex-1 flex items-center justify-center px-4">
-          <div className="w-full max-w-2xl">
-            <SearchBar 
-              value={currentUrl} 
-              onSearch={onSearch} 
-              compact={true}
-            />
-          </div>
-        </div>
-
-        {/* Right section - Navigation controls */}
-        <div className="flex items-center gap-1 text-gray-700 w-64 justify-end">
-          {isProxying && (
-            <>
-              <button
-                onClick={onBack}
-                className="h-10 w-10 rounded-lg hover:bg-gray-100 inline-flex items-center justify-center transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <button
-                onClick={onForward}
-                className="h-10 w-10 rounded-lg hover:bg-gray-100 inline-flex items-center justify-center transition-colors"
-              >
-                <ArrowRight className="h-5 w-5" />
-              </button>
-              <button
-                onClick={onReload}
-                className="h-10 w-10 rounded-lg hover:bg-gray-100 inline-flex items-center justify-center transition-colors"
-              >
-                <RotateCw className="h-5 w-5" />
-              </button>
-            </>
-          )}
-          
-          {/* Settings button */}
-          <button
-            onClick={onOpenSettings}
-            className="h-10 w-10 rounded-lg hover:bg-gray-100 inline-flex items-center justify-center transition-colors"
-            title="Settings"
-          >
-            <Settings className="h-5 w-5" />
-          </button>
         </div>
       </header>
 
@@ -131,7 +112,7 @@ export default function Header({
         >
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-2">
-              <img src="/images/andromeda_logo.png" alt="Andromeda" className="w-10 h-10" />
+              <h2 className="text-xl font-medium text-gray-900">Menu</h2>
             </div>
             <button
               onClick={() => setNavOpen(false)}
@@ -154,8 +135,13 @@ export default function Header({
             </button>
             <button
               onClick={() => {
-                onOpenSettings();
+                onHome();
                 setNavOpen(false);
+                // Navigate to settings after a small delay to ensure state update
+                setTimeout(() => {
+                  const event = new CustomEvent('openSettings');
+                  window.dispatchEvent(event);
+                }, 50);
               }}
               className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
             >

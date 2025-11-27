@@ -15,7 +15,7 @@ export default function SearchPage({ onSearch }: SearchPageProps) {
             alt="Andromeda" 
             className="w-24 h-24"
           />
-          <h1 className="text-4xl font-bold text-gray-900">Andromeda</h1>
+          <h1 className="text-4xl font-medium text-gray-900">Andromeda</h1>
           <p className="text-gray-500 text-center">
             A simple, fast web proxy
           </p>
