@@ -2,11 +2,14 @@ import { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import SearchPage from './components/SearchPage';
 import ProxyFrame from './components/ProxyFrame';
+import SettingsPage from './components/SettingsPage';
 import { ProxyConfig } from './types/proxy';
 import { loadConfig, saveConfig } from './utils/proxySwitcher';
 
+type AppView = 'home' | 'proxy' | 'settings';
+
 export default function App() {
-  const [isProxying, setIsProxying] = useState(false);
+  const [currentView, setCurrentView] = useState<AppView>('home');
   const [proxyUrl, setProxyUrl] = useState('');
   const [pageInfo, setPageInfo] = useState<{ title: string; favicon: string } | null>(null);
   
@@ -31,7 +34,7 @@ export default function App() {
       }
     }
     setProxyUrl(normalizedUrl);
-    setIsProxying(true);
+    setCurrentView('proxy');
   }, []);
 
   const handleBack = useCallback(() => {
@@ -57,10 +60,23 @@ export default function App() {
   }, []);
 
   const handleHome = useCallback(() => {
-    setIsProxying(false);
+    setCurrentView('home');
     setProxyUrl('');
     setPageInfo(null);
   }, []);
+
+  const handleOpenSettings = useCallback(() => {
+    setCurrentView('settings');
+  }, []);
+
+  const handleSettingsBack = useCallback(() => {
+    // Return to home or proxy view based on whether we were proxying
+    if (proxyUrl) {
+      setCurrentView('proxy');
+    } else {
+      setCurrentView('home');
+    }
+  }, [proxyUrl]);
 
   const handlePageInfoUpdate = useCallback((info: { title: string; favicon: string }) => {
     setPageInfo(info);
@@ -70,10 +86,23 @@ export default function App() {
     setConfig(prev => ({ ...prev, ...newConfig }));
   }, []);
 
+  // Render the Settings page without the header
+  if (currentView === 'settings') {
+    return (
+      <div className="h-full w-full flex flex-col bg-white">
+        <SettingsPage
+          config={config}
+          onConfigChange={handleConfigChange}
+          onBack={handleSettingsBack}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="h-full w-full flex flex-col bg-white">
       <Header
-        isProxying={isProxying}
+        isProxying={currentView === 'proxy'}
         pageInfo={pageInfo}
         currentUrl={proxyUrl}
         onSearch={handleSearch}
@@ -81,12 +110,11 @@ export default function App() {
         onForward={handleForward}
         onReload={handleReload}
         onHome={handleHome}
-        config={config}
-        onConfigChange={handleConfigChange}
+        onOpenSettings={handleOpenSettings}
       />
       
       <main className="flex-1 pt-14">
-        {isProxying ? (
+        {currentView === 'proxy' ? (
           <ProxyFrame
             url={proxyUrl}
             config={config}

@@ -28,50 +28,7 @@ export default function SearchPage({ onSearch }: SearchPageProps) {
             placeholder="Search or enter URL..."
           />
         </div>
-
-        {/* Quick links */}
-        <div className="flex gap-4 flex-wrap justify-center">
-          <QuickLink 
-            title="Google" 
-            url="https://google.com" 
-            onClick={onSearch}
-          />
-          <QuickLink 
-            title="YouTube" 
-            url="https://youtube.com" 
-            onClick={onSearch}
-          />
-          <QuickLink 
-            title="Discord" 
-            url="https://discord.com" 
-            onClick={onSearch}
-          />
-          <QuickLink 
-            title="Reddit" 
-            url="https://reddit.com" 
-            onClick={onSearch}
-          />
-        </div>
       </div>
     </div>
-  );
-}
-
-function QuickLink({ 
-  title, 
-  url, 
-  onClick 
-}: { 
-  title: string; 
-  url: string; 
-  onClick: (url: string) => void;
-}) {
-  return (
-    <button
-      onClick={() => onClick(url)}
-      className="px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-sm font-medium text-gray-700 transition-colors border border-gray-200"
-    >
-      {title}
-    </button>
   );
 }

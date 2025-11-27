@@ -22,6 +22,10 @@ declare global {
   }
 }
 
+// Track service worker registration state
+let serviceWorkerRegistered = false;
+let serviceWorkerPromise: Promise<void> | null = null;
+
 export default function ProxyFrame({ 
   url, 
   config, 
@@ -38,6 +42,11 @@ export default function ProxyFrame({
       setError(null);
       
       try {
+        // Register service worker first (if using UV)
+        if (config.proxy === 'ultraviolet') {
+          await registerServiceWorker();
+        }
+        
         // Set up the transport based on config
         await setupTransport(config);
         
@@ -135,6 +144,69 @@ async function loadScript(src: string): Promise<void> {
     script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
     document.head.appendChild(script);
   });
+}
+
+async function registerServiceWorker(): Promise<void> {
+  // Return early if already registered or registration in progress
+  if (serviceWorkerRegistered) {
+    return;
+  }
+  
+  if (serviceWorkerPromise) {
+    return serviceWorkerPromise;
+  }
+
+  serviceWorkerPromise = (async () => {
+    if (!('serviceWorker' in navigator)) {
+      throw new Error('Service workers are not supported in this browser');
+    }
+
+    try {
+      // Wait for the UV config to be available
+      await loadScript('/uv/uv.config.js');
+      
+      // Register the UV service worker
+      const registration = await navigator.serviceWorker.register('/uv/uv.sw.js', {
+        scope: '/~/uv/',
+      });
+
+      // Wait for the service worker to be ready
+      await navigator.serviceWorker.ready;
+      
+      // Wait a bit for the SW to fully initialize
+      if (registration.installing) {
+        await new Promise<void>((resolve, reject) => {
+          const sw = registration.installing;
+          if (!sw) {
+            resolve();
+            return;
+          }
+          
+          // Set a timeout to prevent indefinite waiting
+          const timeout = setTimeout(() => {
+            resolve(); // Resolve anyway after timeout, SW might still work
+          }, 10000);
+          
+          sw.addEventListener('statechange', () => {
+            if (sw.state === 'activated') {
+              clearTimeout(timeout);
+              resolve();
+            } else if (sw.state === 'redundant') {
+              clearTimeout(timeout);
+              reject(new Error('Service worker became redundant'));
+            }
+          });
+        });
+      }
+
+      serviceWorkerRegistered = true;
+    } catch (err) {
+      serviceWorkerPromise = null;
+      throw new Error(`Failed to register service worker: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  })();
+
+  return serviceWorkerPromise;
 }
 
 async function setupTransport(config: ProxyConfig): Promise<void> {
