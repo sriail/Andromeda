@@ -54,6 +54,9 @@ let scramjetServiceWorkerRegistered = false;
 let scramjetServiceWorkerPromise: Promise<void> | null = null;
 let scramjetController: ScramjetController | null = null;
 
+// Service worker activation timeout in milliseconds
+const SW_ACTIVATION_TIMEOUT_MS = 10000;
+
 export default function ProxyFrame({ 
   url, 
   config, 
@@ -260,6 +263,13 @@ async function registerUVServiceWorker(): Promise<void> {
       // Wait for the service worker to activate
       // Note: We can't use navigator.serviceWorker.ready here because it waits for
       // a controller for the *current* page's scope, but UV SW has scope /~/uv/
+      
+      // Check if SW is already activated
+      if (registration.active?.state === 'activated') {
+        uvServiceWorkerRegistered = true;
+        return;
+      }
+      
       const sw = registration.installing || registration.waiting || registration.active;
       
       if (sw && sw.state !== 'activated') {
@@ -267,7 +277,7 @@ async function registerUVServiceWorker(): Promise<void> {
           // Set a timeout to prevent indefinite waiting
           const timeout = setTimeout(() => {
             resolve(); // Resolve anyway after timeout, SW might still work
-          }, 10000);
+          }, SW_ACTIVATION_TIMEOUT_MS);
           
           const handleStateChange = () => {
             if (sw.state === 'activated') {
@@ -319,6 +329,12 @@ async function registerScramjetServiceWorker(): Promise<void> {
         scope: '/',
       });
 
+      // Check if SW is already activated
+      if (registration.active?.state === 'activated') {
+        scramjetServiceWorkerRegistered = true;
+        return;
+      }
+
       // Wait for the service worker to activate
       const sw = registration.installing || registration.waiting || registration.active;
       
@@ -327,7 +343,7 @@ async function registerScramjetServiceWorker(): Promise<void> {
           // Set a timeout to prevent indefinite waiting
           const timeout = setTimeout(() => {
             resolve(); // Resolve anyway after timeout, SW might still work
-          }, 10000);
+          }, SW_ACTIVATION_TIMEOUT_MS);
           
           const handleStateChange = () => {
             if (sw.state === 'activated') {
