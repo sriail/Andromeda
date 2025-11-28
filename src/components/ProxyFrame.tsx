@@ -41,10 +41,34 @@ interface ScramjetControllerConfig {
   };
 }
 
+interface ScramjetFrame {
+  frame: HTMLIFrameElement;
+  go: (url: string) => void;
+  back: () => void;
+  forward: () => void;
+  reload: () => void;
+}
+
 interface ScramjetController {
-  init: () => void;
-  createFrame: () => { frame: HTMLIFrameElement; go: (url: string) => void };
+  init: () => Promise<void>;
+  createFrame: (frame?: HTMLIFrameElement) => ScramjetFrame;
   encodeUrl: (url: string) => string;
+}
+
+// Store the active scramjet frame for navigation
+let activeScramjetFrame: ScramjetFrame | null = null;
+
+// Expose navigation functions for the header buttons
+export function scramjetGoBack(): void {
+  activeScramjetFrame?.back();
+}
+
+export function scramjetGoForward(): void {
+  activeScramjetFrame?.forward();
+}
+
+export function scramjetReload(): void {
+  activeScramjetFrame?.reload();
 }
 
 // Track service worker registration state
@@ -92,19 +116,21 @@ export default function ProxyFrame({
             // Create scramjet frame after render
             setTimeout(() => {
               if (scramjetController) {
-                const frame = scramjetController.createFrame();
-                frame.frame.id = 'proxy-frame';
-                frame.frame.className = 'w-full h-full border-0';
+                const scramFrame = scramjetController.createFrame();
+                scramFrame.frame.id = 'proxy-frame';
+                scramFrame.frame.className = 'w-full h-full border-0';
                 
                 // Remove any existing scramjet frames
                 const existingFrame = document.getElementById('scramjet-container');
                 if (existingFrame) {
                   existingFrame.innerHTML = '';
-                  existingFrame.appendChild(frame.frame);
+                  existingFrame.appendChild(scramFrame.frame);
                 }
                 
-                scramjetFrameRef.current = frame.frame;
-                frame.go(url);
+                scramjetFrameRef.current = scramFrame.frame;
+                // Store the active frame for navigation
+                activeScramjetFrame = scramFrame;
+                scramFrame.go(url);
                 setIsLoading(false);
               }
             }, 100);
@@ -134,6 +160,7 @@ export default function ProxyFrame({
         scramjetFrameRef.current.remove();
         scramjetFrameRef.current = null;
       }
+      activeScramjetFrame = null;
     };
   }, [url, config]);
 
@@ -392,7 +419,8 @@ async function initScramjetController(): Promise<void> {
     },
   });
   
-  scramjetController.init();
+  // Must await init() to properly set up IndexedDB
+  await scramjetController.init();
 }
 
 async function setupTransport(config: ProxyConfig): Promise<void> {
