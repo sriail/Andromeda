@@ -22,7 +22,7 @@ function Dropdown({ id, value, options, onChange }: DropdownProps) {
       id={id}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+      className="w-full px-3 py-2 border border-gray-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-neutral-500 focus:border-transparent"
     >
       {options.map((option) => (
         <option key={option.value} value={option.value}>
@@ -48,7 +48,7 @@ function Input({ id, value, placeholder, onChange }: InputProps) {
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+      className="w-full px-3 py-2 border border-gray-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-neutral-500 focus:border-transparent"
     />
   );
 }
@@ -65,7 +65,7 @@ function Button({ id, text, icon, onClick }: ButtonProps) {
     <button
       id={id}
       onClick={onClick}
-      className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+      className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors"
     >
       {icon === 'save' ? <Save className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
       {text}
@@ -193,28 +193,28 @@ export default function SettingsPage({
   };
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-neutral-900">
       {/* Settings Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white dark:bg-neutral-800 border-b border-gray-200 dark:border-neutral-700 px-6 py-4">
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="h-10 w-10 rounded-lg hover:bg-gray-100 inline-flex items-center justify-center transition-colors"
+            className="h-10 w-10 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 inline-flex items-center justify-center transition-colors"
           >
-            <ArrowLeft className="h-5 w-5 text-gray-700" />
+            <ArrowLeft className="h-5 w-5 text-gray-700 dark:text-gray-200" />
           </button>
-          <h1 className="text-xl font-medium text-gray-900">Proxy Settings</h1>
+          <h1 className="text-xl font-medium text-gray-900 dark:text-white">Proxy Settings</h1>
         </div>
       </div>
 
       {/* Settings Content */}
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl border border-gray-200 dark:border-neutral-700 p-6">
             <div className="w-full flex-grow space-y-4">
               {/* Proxy Type */}
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Proxy Type</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Proxy Type</p>
                 <Dropdown
                   id="pSwitcher"
                   value={config.proxy}
@@ -222,7 +222,7 @@ export default function SettingsPage({
                   onChange={(value) => onConfigChange({ proxy: value as ProxyType })}
                 />
                 {config.proxy === 'scramjet' && (
-                  <p className="mt-1 text-xs text-amber-600">
+                  <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
                     Scramjet is experimental and may not work with all websites.
                   </p>
                 )}
@@ -230,7 +230,7 @@ export default function SettingsPage({
 
               {/* Routing Mode / Server Type */}
               <div className="mt-2">
-                <p className="text-sm font-medium text-gray-700 mb-2">Routing Mode</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Routing Mode</p>
                 <Dropdown
                   id="rSwitcher"
                   value={config.server}
@@ -242,7 +242,7 @@ export default function SettingsPage({
               {/* Transport - only show when using Wisp */}
               {config.server === 'wisp' && (
                 <div className="mt-2" id="transportSection">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Transport</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Transport</p>
                   <Dropdown
                     id="tSwitcher"
                     value={config.transport}
@@ -254,7 +254,7 @@ export default function SettingsPage({
 
               {/* Search Engine */}
               <div className="mt-2">
-                <p className="text-sm font-medium text-gray-700 mb-2">Search Engine</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Search Engine</p>
                 <Dropdown
                   id="sSwitcher"
                   value={config.searchEngine}
@@ -267,7 +267,7 @@ export default function SettingsPage({
               {config.server === 'wisp' && (
                 <div className="mt-2 w-80" id="wispServerSection">
                   <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">Wisp Server</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Wisp Server</p>
                     <Input
                       id="wispServerSwitcher"
                       value={wispServerInput}
@@ -278,7 +278,7 @@ export default function SettingsPage({
                     {/* Ad Blocking - only show for default server */}
                     {isDefaultWispServer && (
                       <div className="mt-2" id="adBlocking">
-                        <p className="text-sm font-medium text-gray-700 mb-2">Ad Blocking</p>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Ad Blocking</p>
                         <Dropdown
                           id="adBlockingDropdown"
                           value={config.adBlocking ? 'enabled' : 'disabled'}
@@ -327,7 +327,7 @@ export default function SettingsPage({
               {config.server === 'bare' && (
                 <div className="mt-2 w-80" id="bareServerSection">
                   <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">Bare Server</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Bare Server</p>
                     <Input
                       id="bareServerSwitcher"
                       value={bareServerInput}

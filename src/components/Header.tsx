@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu, X, Home, Settings, ArrowLeft, ArrowRight, RotateCw } from 'lucide-react';
+import { Menu, X, Home, Settings, Palette, ArrowLeft, ArrowRight, RotateCw } from 'lucide-react';
 import SearchBar from './SearchBar';
 
 interface HeaderProps {
@@ -28,34 +28,34 @@ export default function Header({
   return (
     <>
       {/* Header Bar */}
-      <header className="h-14 fixed top-0 left-0 right-0 bg-white border-b border-gray-200 px-4 z-50 flex items-center font-inter">
+      <header className="h-14 fixed top-0 left-0 right-0 bg-white dark:bg-neutral-800 border-b border-gray-200 dark:border-neutral-700 px-4 z-50 flex items-center font-inter">
         {/* Left section */}
         <div className="flex items-center gap-3 w-64">
           <button
             onClick={() => setNavOpen(true)}
-            className="cursor-pointer inline-flex items-center justify-center rounded-lg text-sm font-medium h-10 w-10 hover:bg-gray-100 transition-colors"
+            className="cursor-pointer inline-flex items-center justify-center rounded-lg text-sm font-medium h-10 w-10 hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors"
           >
-            <Menu className="text-gray-700 h-6 w-6" />
+            <Menu className="text-gray-700 dark:text-gray-200 h-6 w-6" />
           </button>
           
           {/* Navigation controls - back, forward, reload */}
           <button
             onClick={onBack}
-            className="h-10 w-10 rounded-lg hover:bg-gray-100 inline-flex items-center justify-center transition-colors"
+            className="h-10 w-10 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 inline-flex items-center justify-center transition-colors"
           >
-            <ArrowLeft className="h-5 w-5 text-gray-700" />
+            <ArrowLeft className="h-5 w-5 text-gray-700 dark:text-gray-200" />
           </button>
           <button
             onClick={onForward}
-            className="h-10 w-10 rounded-lg hover:bg-gray-100 inline-flex items-center justify-center transition-colors"
+            className="h-10 w-10 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 inline-flex items-center justify-center transition-colors"
           >
-            <ArrowRight className="h-5 w-5 text-gray-700" />
+            <ArrowRight className="h-5 w-5 text-gray-700 dark:text-gray-200" />
           </button>
           <button
             onClick={onReload}
-            className="h-10 w-10 rounded-lg hover:bg-gray-100 inline-flex items-center justify-center transition-colors"
+            className="h-10 w-10 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 inline-flex items-center justify-center transition-colors"
           >
-            <RotateCw className="h-5 w-5 text-gray-700" />
+            <RotateCw className="h-5 w-5 text-gray-700 dark:text-gray-200" />
           </button>
         </div>
 
@@ -71,7 +71,7 @@ export default function Header({
         </div>
 
         {/* Right section - Page info when proxying */}
-        <div className="flex items-center gap-1 text-gray-700 w-64 justify-end">
+        <div className="flex items-center gap-1 text-gray-700 dark:text-gray-200 w-64 justify-end">
           {isProxying && pageInfo && (
             <div className="flex items-center gap-2">
               {pageInfo.favicon && (
@@ -84,7 +84,7 @@ export default function Header({
                   }}
                 />
               )}
-              <span className="text-sm font-medium text-gray-700 truncate max-w-[140px]">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-[140px]">
                 {pageInfo.title || 'Loading...'}
               </span>
             </div>
@@ -106,19 +106,19 @@ export default function Header({
         
         {/* Nav Panel */}
         <div
-          className={`absolute left-0 top-0 h-full w-72 bg-white border-r border-gray-200 p-6 transform transition-transform duration-300 ${
+          className={`absolute left-0 top-0 h-full w-72 bg-white dark:bg-neutral-800 border-r border-gray-200 dark:border-neutral-700 p-6 transform transition-transform duration-300 ${
             navOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-medium text-gray-900">Menu</h2>
+              <h2 className="text-xl font-medium text-gray-900 dark:text-white">Menu</h2>
             </div>
             <button
               onClick={() => setNavOpen(false)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded-lg transition-colors"
             >
-              <X className="h-5 w-5 text-gray-500" />
+              <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
             </button>
           </div>
 
@@ -128,7 +128,7 @@ export default function Header({
                 onHome();
                 setNavOpen(false);
               }}
-              className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors"
             >
               <Home className="h-5 w-5" />
               Home
@@ -143,10 +143,25 @@ export default function Header({
                   window.dispatchEvent(event);
                 }, 50);
               }}
-              className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors"
             >
               <Settings className="h-5 w-5" />
-              Settings
+              Proxy Settings
+            </button>
+            <button
+              onClick={() => {
+                onHome();
+                setNavOpen(false);
+                // Navigate to appearance after a small delay to ensure state update
+                setTimeout(() => {
+                  const event = new CustomEvent('openAppearance');
+                  window.dispatchEvent(event);
+                }, 50);
+              }}
+              className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors"
+            >
+              <Palette className="h-5 w-5" />
+              Appearance
             </button>
           </nav>
         </div>

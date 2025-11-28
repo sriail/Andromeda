@@ -2,6 +2,7 @@ export type ProxyType = 'ultraviolet' | 'scramjet';
 export type ServerType = 'wisp' | 'bare';
 export type TransportType = 'epoxy' | 'libcurl' | 'bare';
 export type SearchEngine = 'google' | 'duckduckgo' | 'bing' | 'yahoo' | 'brave';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 export interface ProxyConfig {
   proxy: ProxyType;

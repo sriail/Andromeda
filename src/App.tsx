@@ -3,10 +3,12 @@ import Header from './components/Header';
 import SearchPage from './components/SearchPage';
 import ProxyFrame, { scramjetGoBack, scramjetGoForward, scramjetReload } from './components/ProxyFrame';
 import SettingsPage from './components/SettingsPage';
+import AppearancePage from './components/AppearancePage';
+import { ThemeProvider } from './components/ThemeContext';
 import { ProxyConfig, SearchEngine } from './types/proxy';
 import { loadConfig, saveConfig } from './utils/proxySwitcher';
 
-type AppView = 'home' | 'proxy' | 'settings';
+type AppView = 'home' | 'proxy' | 'settings' | 'appearance';
 
 const searchEngineUrls: Record<SearchEngine, string> = {
   google: 'https://www.google.com/search?q=',
@@ -16,7 +18,7 @@ const searchEngineUrls: Record<SearchEngine, string> = {
   brave: 'https://search.brave.com/search?q='
 };
 
-export default function App() {
+function AppContent() {
   const [currentView, setCurrentView] = useState<AppView>('home');
   const [proxyUrl, setProxyUrl] = useState('');
   const [pageInfo, setPageInfo] = useState<{ title: string; favicon: string } | null>(null);
@@ -34,9 +36,14 @@ export default function App() {
     const handleOpenSettingsEvent = () => {
       setCurrentView('settings');
     };
+    const handleOpenAppearanceEvent = () => {
+      setCurrentView('appearance');
+    };
     window.addEventListener('openSettings', handleOpenSettingsEvent);
+    window.addEventListener('openAppearance', handleOpenAppearanceEvent);
     return () => {
       window.removeEventListener('openSettings', handleOpenSettingsEvent);
+      window.removeEventListener('openAppearance', handleOpenAppearanceEvent);
     };
   }, []);
 
@@ -118,7 +125,7 @@ export default function App() {
   // Render the Settings page without the header
   if (currentView === 'settings') {
     return (
-      <div className="h-full w-full flex flex-col bg-white">
+      <div className="h-full w-full flex flex-col bg-white dark:bg-neutral-900">
         <SettingsPage
           config={config}
           onConfigChange={handleConfigChange}
@@ -128,8 +135,17 @@ export default function App() {
     );
   }
 
+  // Render the Appearance page without the header
+  if (currentView === 'appearance') {
+    return (
+      <div className="h-full w-full flex flex-col bg-white dark:bg-neutral-900">
+        <AppearancePage onBack={handleSettingsBack} />
+      </div>
+    );
+  }
+
   return (
-    <div className="h-full w-full flex flex-col bg-white">
+    <div className="h-full w-full flex flex-col bg-white dark:bg-neutral-900">
       <Header
         isProxying={currentView === 'proxy'}
         pageInfo={pageInfo}
@@ -154,5 +170,13 @@ export default function App() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
