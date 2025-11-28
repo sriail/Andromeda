@@ -16,12 +16,12 @@ const PORT = process.env.PORT || 8080;
 const httpServer = createServer({
   // Increase header size limit for sites with heavy cookies
   maxHeaderSize: 32768, // 32KB
-  // Enable keep-alive for better connection stability
-  keepAlive: true,
-  keepAliveTimeout: 65000, // 65 seconds
   // Increase timeout for long-running requests
   requestTimeout: 120000 // 120 seconds
 });
+
+// Configure keep-alive timeout for better connection stability (65 seconds)
+httpServer.keepAliveTimeout = 65000;
 
 // Create Bare Server with connection limiter to prevent "too many keepalive requests" error
 const bareServer = createBareServer('/bare/', {

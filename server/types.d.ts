@@ -31,7 +31,7 @@ declare module '@tomphttp/bare-server-node' {
     maxConnectionsPerIP?: number;
     /** Duration in seconds for the rate limit cooldown time window. @default 60 */
     windowDuration?: number;
-    /** Block duration in seconds for during rate limit cooldown. @default 60 */
+    /** Block duration in seconds during rate limit cooldown. @default 60 */
     blockDuration?: number;
   }
 
