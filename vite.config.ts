@@ -8,21 +8,35 @@ export default defineConfig({
     react(),
     viteStaticCopy({
       targets: [
+        // Ultraviolet files
         {
           src: 'node_modules/@titaniumnetwork-dev/ultraviolet/dist/!(uv.config.js)',
           dest: 'uv'
         },
+        // BareMux files
         {
           src: 'node_modules/@mercuryworkshop/bare-mux/dist/*',
           dest: 'baremux'
         },
+        // Epoxy transport
         {
           src: 'node_modules/@mercuryworkshop/epoxy-transport/dist/*',
           dest: 'epoxy'
         },
+        // Libcurl transport
         {
           src: 'node_modules/@mercuryworkshop/libcurl-transport/dist/*',
           dest: 'libcurl'
+        },
+        // Scramjet files
+        {
+          src: 'node_modules/@mercuryworkshop/scramjet/dist/*',
+          dest: 'scram'
+        },
+        // Bare transport (for bare server mode)
+        {
+          src: 'node_modules/@mercuryworkshop/bare-as-module3/dist/*',
+          dest: 'baremod'
         }
       ]
     })

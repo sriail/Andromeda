@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ProxyConfig } from '../types/proxy';
+import { getDefaultWispServer, getDefaultBareServer } from '../utils/proxySwitcher';
 
 interface ProxyFrameProps {
   url: string;
@@ -18,13 +19,40 @@ declare global {
     };
     BareMuxConnection?: new (workerPath: string) => {
       setTransport: (path: string, args: unknown[]) => Promise<void>;
+      getTransport: () => Promise<string | undefined>;
+    };
+    BareMux?: {
+      BareMuxConnection: new (workerPath: string) => {
+        setTransport: (path: string, args: unknown[]) => Promise<void>;
+        getTransport: () => Promise<string | undefined>;
+      };
+    };
+    $scramjetLoadController?: () => {
+      ScramjetController: new (config: ScramjetControllerConfig) => ScramjetController;
     };
   }
 }
 
+interface ScramjetControllerConfig {
+  files: {
+    wasm: string;
+    all: string;
+    sync: string;
+  };
+}
+
+interface ScramjetController {
+  init: () => void;
+  createFrame: () => { frame: HTMLIFrameElement; go: (url: string) => void };
+  encodeUrl: (url: string) => string;
+}
+
 // Track service worker registration state
-let serviceWorkerRegistered = false;
-let serviceWorkerPromise: Promise<void> | null = null;
+let uvServiceWorkerRegistered = false;
+let uvServiceWorkerPromise: Promise<void> | null = null;
+let scramjetServiceWorkerRegistered = false;
+let scramjetServiceWorkerPromise: Promise<void> | null = null;
+let scramjetController: ScramjetController | null = null;
 
 export default function ProxyFrame({ 
   url, 
@@ -32,27 +60,60 @@ export default function ProxyFrame({
   onPageInfoUpdate,
 }: ProxyFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const scramjetFrameRef = useRef<HTMLIFrameElement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [encodedUrl, setEncodedUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [useScramjetFrame, setUseScramjetFrame] = useState(false);
 
   useEffect(() => {
     const initProxy = async () => {
       setIsLoading(true);
       setError(null);
+      setUseScramjetFrame(false);
       
       try {
-        // Register service worker first (if using UV)
-        if (config.proxy === 'ultraviolet') {
-          await registerServiceWorker();
-        }
-        
         // Set up the transport based on config
         await setupTransport(config);
         
-        // Encode the URL based on proxy type
-        const encoded = await encodeProxyUrl(url, config);
-        setEncodedUrl(encoded);
+        if (config.proxy === 'scramjet') {
+          // Initialize Scramjet
+          await registerScramjetServiceWorker();
+          await initScramjetController();
+          
+          if (scramjetController) {
+            // Create and use scramjet frame
+            setUseScramjetFrame(true);
+            setEncodedUrl(''); // Clear regular iframe URL
+            
+            // Create scramjet frame after render
+            setTimeout(() => {
+              if (scramjetController) {
+                const frame = scramjetController.createFrame();
+                frame.frame.id = 'proxy-frame';
+                frame.frame.className = 'w-full h-full border-0';
+                
+                // Remove any existing scramjet frames
+                const existingFrame = document.getElementById('scramjet-container');
+                if (existingFrame) {
+                  existingFrame.innerHTML = '';
+                  existingFrame.appendChild(frame.frame);
+                }
+                
+                scramjetFrameRef.current = frame.frame;
+                frame.go(url);
+                setIsLoading(false);
+              }
+            }, 100);
+          }
+        } else {
+          // Register UV service worker
+          await registerUVServiceWorker();
+          
+          // Encode the URL for Ultraviolet
+          const encoded = await encodeProxyUrl(url, config);
+          setEncodedUrl(encoded);
+        }
       } catch (err) {
         console.error('Error initializing proxy:', err);
         setError(err instanceof Error ? err.message : 'Failed to initialize proxy');
@@ -63,6 +124,14 @@ export default function ProxyFrame({
     if (url) {
       initProxy();
     }
+    
+    // Cleanup scramjet frame on unmount
+    return () => {
+      if (scramjetFrameRef.current) {
+        scramjetFrameRef.current.remove();
+        scramjetFrameRef.current = null;
+      }
+    };
   }, [url, config]);
 
   const handleLoad = () => {
@@ -116,15 +185,19 @@ export default function ProxyFrame({
         </div>
       )}
       
-      {encodedUrl && (
-        <iframe
-          id="proxy-frame"
-          ref={iframeRef}
-          src={encodedUrl}
-          onLoad={handleLoad}
-          className="w-full h-full border-0"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-        />
+      {useScramjetFrame ? (
+        <div id="scramjet-container" className="w-full h-full" />
+      ) : (
+        encodedUrl && (
+          <iframe
+            id="proxy-frame"
+            ref={iframeRef}
+            src={encodedUrl}
+            onLoad={handleLoad}
+            className="w-full h-full border-0"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+          />
+        )
       )}
     </div>
   );
@@ -155,17 +228,22 @@ async function loadUVScripts(): Promise<void> {
   await loadScript('/uv/uv.config.js');
 }
 
-async function registerServiceWorker(): Promise<void> {
+// Load Scramjet scripts
+async function loadScramjetScripts(): Promise<void> {
+  await loadScript('/scram/scramjet.bundle.js');
+}
+
+async function registerUVServiceWorker(): Promise<void> {
   // Return early if already registered or registration in progress
-  if (serviceWorkerRegistered) {
+  if (uvServiceWorkerRegistered) {
     return;
   }
   
-  if (serviceWorkerPromise) {
-    return serviceWorkerPromise;
+  if (uvServiceWorkerPromise) {
+    return uvServiceWorkerPromise;
   }
 
-  serviceWorkerPromise = (async () => {
+  uvServiceWorkerPromise = (async () => {
     if (!('serviceWorker' in navigator)) {
       throw new Error('Service workers are not supported in this browser');
     }
@@ -208,62 +286,155 @@ async function registerServiceWorker(): Promise<void> {
         });
       }
 
-      serviceWorkerRegistered = true;
+      uvServiceWorkerRegistered = true;
     } catch (err) {
-      serviceWorkerPromise = null;
-      throw new Error(`Failed to register service worker: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      uvServiceWorkerPromise = null;
+      throw new Error(`Failed to register UV service worker: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   })();
 
-  return serviceWorkerPromise;
+  return uvServiceWorkerPromise;
+}
+
+async function registerScramjetServiceWorker(): Promise<void> {
+  // Return early if already registered or registration in progress
+  if (scramjetServiceWorkerRegistered) {
+    return;
+  }
+  
+  if (scramjetServiceWorkerPromise) {
+    return scramjetServiceWorkerPromise;
+  }
+
+  scramjetServiceWorkerPromise = (async () => {
+    if (!('serviceWorker' in navigator)) {
+      throw new Error('Service workers are not supported in this browser');
+    }
+
+    try {
+      // Load Scramjet scripts
+      await loadScramjetScripts();
+      
+      // Register the Scramjet service worker
+      const registration = await navigator.serviceWorker.register('/sw.js', {
+        scope: '/',
+      });
+
+      // Wait for the service worker to be ready
+      await navigator.serviceWorker.ready;
+      
+      // Wait a bit for the SW to fully initialize
+      if (registration.installing) {
+        await new Promise<void>((resolve, reject) => {
+          const sw = registration.installing;
+          if (!sw) {
+            resolve();
+            return;
+          }
+          
+          // Set a timeout to prevent indefinite waiting
+          const timeout = setTimeout(() => {
+            resolve(); // Resolve anyway after timeout, SW might still work
+          }, 10000);
+          
+          sw.addEventListener('statechange', () => {
+            if (sw.state === 'activated') {
+              clearTimeout(timeout);
+              resolve();
+            } else if (sw.state === 'redundant') {
+              clearTimeout(timeout);
+              reject(new Error('Scramjet service worker became redundant'));
+            }
+          });
+        });
+      }
+
+      scramjetServiceWorkerRegistered = true;
+    } catch (err) {
+      scramjetServiceWorkerPromise = null;
+      throw new Error(`Failed to register Scramjet service worker: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  })();
+
+  return scramjetServiceWorkerPromise;
+}
+
+async function initScramjetController(): Promise<void> {
+  if (scramjetController) {
+    return;
+  }
+  
+  await loadScramjetScripts();
+  
+  if (!window.$scramjetLoadController) {
+    throw new Error('Scramjet controller loader not available');
+  }
+  
+  const { ScramjetController } = window.$scramjetLoadController();
+  
+  scramjetController = new ScramjetController({
+    files: {
+      wasm: '/scram/scramjet.wasm.wasm',
+      all: '/scram/scramjet.all.js',
+      sync: '/scram/scramjet.sync.js',
+    },
+  });
+  
+  scramjetController.init();
 }
 
 async function setupTransport(config: ProxyConfig): Promise<void> {
   // Load BareMux
   await loadScript('/baremux/index.js');
   
-  if (!window.BareMuxConnection) {
+  const BareMuxConnection = window.BareMuxConnection || window.BareMux?.BareMuxConnection;
+  
+  if (!BareMuxConnection) {
     throw new Error('BareMux not loaded properly');
   }
   
   let connection;
   try {
-    connection = new window.BareMuxConnection('/baremux/worker.js');
+    connection = new BareMuxConnection('/baremux/worker.js');
   } catch (err) {
     throw new Error(`Failed to create BareMux connection: ${err instanceof Error ? err.message : 'Unknown error'}`);
   }
 
-  // Get wisp URL (configured or default)
-  const defaultWispUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/wisp/`;
-  const wispUrl = config.wispServer || defaultWispUrl;
-  
-  // Set transport based on configuration
-  // Note: Only Wisp server mode is currently supported
-  if (config.server !== 'wisp') {
-    console.warn('Bare server mode is not currently supported. Falling back to Wisp with libcurl transport.');
-  }
-  
-  if (config.transport === 'epoxy') {
-    await connection.setTransport('/epoxy/index.mjs', [{ wisp: wispUrl }]);
+  // Set transport based on server mode
+  if (config.server === 'bare') {
+    // Use bare transport for direct bare server connection
+    const bareUrl = config.bareServer || getDefaultBareServer();
+    await connection.setTransport('/baremod/index.mjs', [bareUrl]);
   } else {
-    await connection.setTransport('/libcurl/index.mjs', [{ wisp: wispUrl }]);
+    // Use wisp-based transports
+    const wispUrl = config.wispServer || getDefaultWispServer();
+    
+    if (config.transport === 'epoxy') {
+      await connection.setTransport('/epoxy/index.mjs', [{ wisp: wispUrl }]);
+    } else {
+      // Default to libcurl
+      await connection.setTransport('/libcurl/index.mjs', [{ wisp: wispUrl }]);
+    }
   }
 }
 
 async function encodeProxyUrl(url: string, config: ProxyConfig): Promise<string> {
-  // Load UV bundle and config scripts
-  await loadUVScripts();
-  
-  if (config.proxy === 'ultraviolet') {
+  if (config.proxy === 'scramjet') {
+    // Scramjet handles URL encoding internally via its controller
+    // This shouldn't be called for scramjet, but provide a fallback
+    if (scramjetController) {
+      return scramjetController.encodeUrl(url);
+    }
+    throw new Error('Scramjet controller not initialized');
+  } else {
+    // Load UV bundle and config scripts
+    await loadUVScripts();
+    
     if (!window.__uv$config) {
       throw new Error('Ultraviolet config not loaded');
     }
     const encoded = window.__uv$config.encodeUrl(url);
     return window.__uv$config.prefix + encoded;
-  } else {
-    // Scramjet - simple URL encoding
-    const encoded = encodeURIComponent(url);
-    return `/~/scramjet/${encoded}`;
   }
 }
 
