@@ -233,21 +233,20 @@ async function setupTransport(config: ProxyConfig): Promise<void> {
     throw new Error(`Failed to create BareMux connection: ${err instanceof Error ? err.message : 'Unknown error'}`);
   }
 
-  if (config.server === 'wisp') {
-    // Use configured wisp server or default to current host
-    const defaultWispUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/wisp/`;
-    const wispUrl = config.wispServer || defaultWispUrl;
-    
-    if (config.transport === 'epoxy') {
-      await connection.setTransport('/epoxy/index.mjs', [{ wisp: wispUrl }]);
-    } else {
-      await connection.setTransport('/libcurl/index.mjs', [{ wisp: wispUrl }]);
-    }
-  } else {
-    // Bare server mode - currently not supported, fall back to wisp with libcurl
+  // Get wisp URL (configured or default)
+  const defaultWispUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/wisp/`;
+  const wispUrl = config.wispServer || defaultWispUrl;
+  
+  // Set transport based on configuration
+  // Note: Only Wisp server mode is currently supported
+  if (config.server !== 'wisp') {
     console.warn('Bare server mode is not currently supported. Falling back to Wisp with libcurl transport.');
-    const defaultWispUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/wisp/`;
-    await connection.setTransport('/libcurl/index.mjs', [{ wisp: defaultWispUrl }]);
+  }
+  
+  if (config.transport === 'epoxy') {
+    await connection.setTransport('/epoxy/index.mjs', [{ wisp: wispUrl }]);
+  } else {
+    await connection.setTransport('/libcurl/index.mjs', [{ wisp: wispUrl }]);
   }
 }
 

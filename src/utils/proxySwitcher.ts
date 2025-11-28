@@ -116,13 +116,13 @@ export function getBareUrl(): string {
 
 // Type guards
 function isValidProxy(value: unknown): value is ProxyType {
-  // Only ultraviolet is currently supported
-  return value === 'ultraviolet' || value === 'scramjet';
+  // Only ultraviolet is currently supported, but keep type compatibility
+  return value === 'ultraviolet';
 }
 
 function isValidServer(value: unknown): value is ServerType {
-  // Only wisp is currently supported
-  return value === 'wisp' || value === 'bare';
+  // Only wisp is currently supported, but keep type compatibility
+  return value === 'wisp';
 }
 
 function isValidTransport(value: unknown): value is TransportType {
