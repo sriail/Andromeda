@@ -228,9 +228,9 @@ async function loadUVScripts(): Promise<void> {
   await loadScript('/uv/uv.config.js');
 }
 
-// Load Scramjet scripts
+// Load Scramjet scripts - use scramjet.all.js which sets up globalThis.$scramjetLoadController
 async function loadScramjetScripts(): Promise<void> {
-  await loadScript('/scram/scramjet.bundle.js');
+  await loadScript('/scram/scramjet.all.js');
 }
 
 async function registerUVServiceWorker(): Promise<void> {
@@ -252,8 +252,8 @@ async function registerUVServiceWorker(): Promise<void> {
       // Load UV bundle and config scripts
       await loadUVScripts();
       
-      // Register the UV service worker
-      const registration = await navigator.serviceWorker.register('/uv/uv.sw.js', {
+      // Register the UV service worker (use sw.js which imports the bundle, config, and uv.sw.js)
+      const registration = await navigator.serviceWorker.register('/uv/sw.js', {
         scope: '/~/uv/',
       });
 
