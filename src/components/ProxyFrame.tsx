@@ -89,6 +89,7 @@ export default function ProxyFrame({
   url, 
   config, 
   onPageInfoUpdate,
+  onUrlChange: _onUrlChange, // Reserved for future URL tracking
 }: ProxyFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const scramjetFrameRef = useRef<HTMLIFrameElement | null>(null);
@@ -117,8 +118,9 @@ export default function ProxyFrame({
             setUseScramjetFrame(true);
             setEncodedUrl(''); // Clear regular iframe URL
             
-            // Create scramjet frame after render
-            setTimeout(() => {
+            // Create scramjet frame after DOM is ready using requestAnimationFrame
+            // This ensures the container element is rendered before we try to append to it
+            requestAnimationFrame(() => {
               if (scramjetController) {
                 const scramFrame = scramjetController.createFrame();
                 scramFrame.frame.id = 'proxy-frame';
@@ -137,7 +139,7 @@ export default function ProxyFrame({
                 scramFrame.go(url);
                 setIsLoading(false);
               }
-            }, 100);
+            });
           }
         } else {
           // Ultraviolet - load transport and service worker in parallel
@@ -439,11 +441,10 @@ async function setupTransport(config: ProxyConfig): Promise<void> {
     bareServer: config.bareServer || getDefaultBareServer()
   };
   
-  if (transportConfigured && lastTransportConfig &&
-      lastTransportConfig.server === currentConfig.server &&
-      lastTransportConfig.transport === currentConfig.transport &&
-      lastTransportConfig.wispServer === currentConfig.wispServer &&
-      lastTransportConfig.bareServer === currentConfig.bareServer) {
+  // Use JSON comparison for simplicity and maintainability
+  if (transportConfigured && 
+      lastTransportConfig && 
+      JSON.stringify(lastTransportConfig) === JSON.stringify(currentConfig)) {
     // Transport already configured with same settings
     return;
   }
