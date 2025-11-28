@@ -153,29 +153,27 @@ export default function SettingsPage({
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="w-full flex-grow space-y-4">
-              {/* Proxy Switcher */}
+              {/* Proxy Type - Currently only Ultraviolet is supported */}
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Proxy Switcher</p>
+                <p className="text-sm font-medium text-gray-700 mb-2">Proxy Type</p>
                 <Dropdown
                   id="pSwitcher"
                   value={config.proxy}
                   options={[
-                    { name: 'Ultraviolet', value: 'ultraviolet' },
-                    { name: 'Scramjet', value: 'scramjet' }
+                    { name: 'Ultraviolet', value: 'ultraviolet' }
                   ]}
                   onChange={(value) => onConfigChange({ proxy: value as ProxyType })}
                 />
               </div>
 
-              {/* Routing Mode */}
+              {/* Routing Mode - Currently only Wisp is fully supported */}
               <div className="mt-2">
                 <p className="text-sm font-medium text-gray-700 mb-2">Routing Mode</p>
                 <Dropdown
                   id="rSwitcher"
                   value={config.server}
                   options={[
-                    { name: 'Wisp Server', value: 'wisp' },
-                    { name: 'Bare Server', value: 'bare' }
+                    { name: 'Wisp Server', value: 'wisp' }
                   ]}
                   onChange={(value) => onConfigChange({ server: value as ServerType })}
                 />

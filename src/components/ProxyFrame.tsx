@@ -133,7 +133,8 @@ export default function ProxyFrame({
 async function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
     // Check if script already loaded
-    if (document.querySelector(`script[src="${src}"]`)) {
+    const existingScript = document.querySelector(`script[src="${src}"]`);
+    if (existingScript) {
       resolve();
       return;
     }
@@ -144,6 +145,14 @@ async function loadScript(src: string): Promise<void> {
     script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
     document.head.appendChild(script);
   });
+}
+
+// Load UV bundle before config (provides Ultraviolet.codec)
+async function loadUVScripts(): Promise<void> {
+  // Load bundle first to make Ultraviolet.codec available
+  await loadScript('/uv/uv.bundle.js');
+  // Then load config which uses the codec
+  await loadScript('/uv/uv.config.js');
 }
 
 async function registerServiceWorker(): Promise<void> {
@@ -162,8 +171,8 @@ async function registerServiceWorker(): Promise<void> {
     }
 
     try {
-      // Wait for the UV config to be available
-      await loadScript('/uv/uv.config.js');
+      // Load UV bundle and config scripts
+      await loadUVScripts();
       
       // Register the UV service worker
       const registration = await navigator.serviceWorker.register('/uv/uv.sw.js', {
@@ -224,25 +233,26 @@ async function setupTransport(config: ProxyConfig): Promise<void> {
     throw new Error(`Failed to create BareMux connection: ${err instanceof Error ? err.message : 'Unknown error'}`);
   }
 
-  if (config.server === 'wisp') {
-    // Use configured wisp server or default to current host
-    const defaultWispUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/wisp/`;
-    const wispUrl = config.wispServer || defaultWispUrl;
-    
-    if (config.transport === 'epoxy') {
-      await connection.setTransport('/epoxy/index.mjs', [{ wisp: wispUrl }]);
-    } else {
-      await connection.setTransport('/libcurl/index.mjs', [{ wisp: wispUrl }]);
-    }
+  // Get wisp URL (configured or default)
+  const defaultWispUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/wisp/`;
+  const wispUrl = config.wispServer || defaultWispUrl;
+  
+  // Set transport based on configuration
+  // Note: Only Wisp server mode is currently supported
+  if (config.server !== 'wisp') {
+    console.warn('Bare server mode is not currently supported. Falling back to Wisp with libcurl transport.');
+  }
+  
+  if (config.transport === 'epoxy') {
+    await connection.setTransport('/epoxy/index.mjs', [{ wisp: wispUrl }]);
   } else {
-    // Bare server - use baremod transport
-    await connection.setTransport('/baremux/index.mjs', [`${location.origin}/bare/`]);
+    await connection.setTransport('/libcurl/index.mjs', [{ wisp: wispUrl }]);
   }
 }
 
 async function encodeProxyUrl(url: string, config: ProxyConfig): Promise<string> {
-  // Load UV config
-  await loadScript('/uv/uv.config.js');
+  // Load UV bundle and config scripts
+  await loadUVScripts();
   
   if (config.proxy === 'ultraviolet') {
     if (!window.__uv$config) {

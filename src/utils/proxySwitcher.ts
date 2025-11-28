@@ -95,11 +95,8 @@ export function resetConfig(): ProxyConfig {
  * Get the proxy prefix based on current configuration
  */
 export function getProxyPrefix(config: ProxyConfig): string {
-  if (config.proxy === 'ultraviolet') {
-    return '/~/uv/';
-  } else {
-    return '/~/scramjet/';
-  }
+  // Only Ultraviolet is currently supported
+  return '/~/uv/';
 }
 
 /**
@@ -119,11 +116,13 @@ export function getBareUrl(): string {
 
 // Type guards
 function isValidProxy(value: unknown): value is ProxyType {
-  return value === 'ultraviolet' || value === 'scramjet';
+  // Only ultraviolet is currently supported, but keep type compatibility
+  return value === 'ultraviolet';
 }
 
 function isValidServer(value: unknown): value is ServerType {
-  return value === 'wisp' || value === 'bare';
+  // Only wisp is currently supported, but keep type compatibility
+  return value === 'wisp';
 }
 
 function isValidTransport(value: unknown): value is TransportType {

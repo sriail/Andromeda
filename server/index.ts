@@ -60,10 +60,6 @@ app.get('/~/uv/*', (req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../public/index.html'));
 });
 
-app.get('/~/scramjet/*', (req: Request, res: Response) => {
-  res.sendFile(join(__dirname, '../public/index.html'));
-});
-
 // SPA fallback - serve index.html for all non-file routes
 app.get('*', (req: Request, res: Response) => {
   // Don't serve index.html for API routes or static files with extensions
