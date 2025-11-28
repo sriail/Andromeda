@@ -54,6 +54,9 @@ let scramjetServiceWorkerRegistered = false;
 let scramjetServiceWorkerPromise: Promise<void> | null = null;
 let scramjetController: ScramjetController | null = null;
 
+// Service worker activation timeout in milliseconds
+const SW_ACTIVATION_TIMEOUT_MS = 10000;
+
 export default function ProxyFrame({ 
   url, 
   config, 
@@ -257,32 +260,38 @@ async function registerUVServiceWorker(): Promise<void> {
         scope: '/~/uv/',
       });
 
-      // Wait for the service worker to be ready
-      await navigator.serviceWorker.ready;
+      // Wait for the service worker to activate
+      // Note: We can't use navigator.serviceWorker.ready here because it waits for
+      // a controller for the *current* page's scope, but UV SW has scope /~/uv/
       
-      // Wait a bit for the SW to fully initialize
-      if (registration.installing) {
+      // Check if SW is already activated
+      if (registration.active?.state === 'activated') {
+        uvServiceWorkerRegistered = true;
+        return;
+      }
+      
+      const sw = registration.installing || registration.waiting || registration.active;
+      
+      if (sw && sw.state !== 'activated') {
         await new Promise<void>((resolve, reject) => {
-          const sw = registration.installing;
-          if (!sw) {
-            resolve();
-            return;
-          }
-          
           // Set a timeout to prevent indefinite waiting
           const timeout = setTimeout(() => {
             resolve(); // Resolve anyway after timeout, SW might still work
-          }, 10000);
+          }, SW_ACTIVATION_TIMEOUT_MS);
           
-          sw.addEventListener('statechange', () => {
+          const handleStateChange = () => {
             if (sw.state === 'activated') {
               clearTimeout(timeout);
+              sw.removeEventListener('statechange', handleStateChange);
               resolve();
             } else if (sw.state === 'redundant') {
               clearTimeout(timeout);
+              sw.removeEventListener('statechange', handleStateChange);
               reject(new Error('Service worker became redundant'));
             }
-          });
+          };
+          
+          sw.addEventListener('statechange', handleStateChange);
         });
       }
 
@@ -320,32 +329,35 @@ async function registerScramjetServiceWorker(): Promise<void> {
         scope: '/',
       });
 
-      // Wait for the service worker to be ready
-      await navigator.serviceWorker.ready;
+      // Check if SW is already activated
+      if (registration.active?.state === 'activated') {
+        scramjetServiceWorkerRegistered = true;
+        return;
+      }
+
+      // Wait for the service worker to activate
+      const sw = registration.installing || registration.waiting || registration.active;
       
-      // Wait a bit for the SW to fully initialize
-      if (registration.installing) {
+      if (sw && sw.state !== 'activated') {
         await new Promise<void>((resolve, reject) => {
-          const sw = registration.installing;
-          if (!sw) {
-            resolve();
-            return;
-          }
-          
           // Set a timeout to prevent indefinite waiting
           const timeout = setTimeout(() => {
             resolve(); // Resolve anyway after timeout, SW might still work
-          }, 10000);
+          }, SW_ACTIVATION_TIMEOUT_MS);
           
-          sw.addEventListener('statechange', () => {
+          const handleStateChange = () => {
             if (sw.state === 'activated') {
               clearTimeout(timeout);
+              sw.removeEventListener('statechange', handleStateChange);
               resolve();
             } else if (sw.state === 'redundant') {
               clearTimeout(timeout);
+              sw.removeEventListener('statechange', handleStateChange);
               reject(new Error('Scramjet service worker became redundant'));
             }
-          });
+          };
+          
+          sw.addEventListener('statechange', handleStateChange);
         });
       }
 
