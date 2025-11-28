@@ -9,7 +9,7 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
-          src: 'node_modules/@titaniumnetwork-dev/ultraviolet/dist/*',
+          src: 'node_modules/@titaniumnetwork-dev/ultraviolet/dist/!(uv.config.js)',
           dest: 'uv'
         },
         {

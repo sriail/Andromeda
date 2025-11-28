@@ -211,7 +211,7 @@ async function registerServiceWorker(): Promise<void> {
 
 async function setupTransport(config: ProxyConfig): Promise<void> {
   // Load BareMux
-  await loadScript('/baremux/bare.cjs');
+  await loadScript('/baremux/index.js');
   
   if (!window.BareMuxConnection) {
     throw new Error('BareMux not loaded properly');
