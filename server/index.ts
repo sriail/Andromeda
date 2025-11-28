@@ -4,7 +4,7 @@ import Fastify, {
   FastifyReply,
   FastifyRequest
 } from 'fastify';
-import fastifyStatic from '@fastify/static';
+import fastifyStatic, { SetHeadersResponse } from '@fastify/static';
 import { createServer, ServerResponse, IncomingMessage } from 'http';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -106,19 +106,19 @@ const app = Fastify({
   }
 });
 
-// Helper to set common headers for static files
-const setStaticHeaders = (reply: FastifyReply, path: string, options?: { serviceWorker?: boolean; crossOrigin?: boolean }) => {
+// Helper to set common headers for static files using @fastify/static's SetHeadersResponse
+const setStaticHeaders = (res: SetHeadersResponse, path: string, options?: { serviceWorker?: boolean; crossOrigin?: boolean }) => {
   if (path.endsWith('.js') || path.endsWith('.cjs') || path.endsWith('.mjs')) {
-    reply.header('Content-Type', 'application/javascript');
+    res.setHeader('Content-Type', 'application/javascript');
   } else if (path.endsWith('.wasm')) {
-    reply.header('Content-Type', 'application/wasm');
+    res.setHeader('Content-Type', 'application/wasm');
   }
   if (options?.serviceWorker) {
-    reply.header('Service-Worker-Allowed', '/');
+    res.setHeader('Service-Worker-Allowed', '/');
   }
   if (options?.crossOrigin) {
-    reply.header('Cross-Origin-Opener-Policy', 'same-origin');
-    reply.header('Cross-Origin-Embedder-Policy', 'require-corp');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
   }
 };
 
@@ -128,10 +128,7 @@ await app.register(fastifyStatic, {
   prefix: '/uv/',
   decorateReply: false,
   setHeaders: (res, path) => {
-    const reply = res as unknown as FastifyReply;
-    if (typeof reply.header === 'function') {
-      setStaticHeaders(reply, path, { serviceWorker: true });
-    }
+    setStaticHeaders(res, path, { serviceWorker: true });
   }
 });
 
@@ -141,10 +138,7 @@ await app.register(fastifyStatic, {
   prefix: '/scram/',
   decorateReply: false,
   setHeaders: (res, path) => {
-    const reply = res as unknown as FastifyReply;
-    if (typeof reply.header === 'function') {
-      setStaticHeaders(reply, path, { serviceWorker: true, crossOrigin: true });
-    }
+    setStaticHeaders(res, path, { serviceWorker: true, crossOrigin: true });
   }
 });
 
@@ -154,10 +148,7 @@ await app.register(fastifyStatic, {
   prefix: '/baremux/',
   decorateReply: false,
   setHeaders: (res, path) => {
-    const reply = res as unknown as FastifyReply;
-    if (typeof reply.header === 'function') {
-      setStaticHeaders(reply, path, { serviceWorker: true });
-    }
+    setStaticHeaders(res, path, { serviceWorker: true });
   }
 });
 
@@ -165,21 +156,30 @@ await app.register(fastifyStatic, {
 await app.register(fastifyStatic, {
   root: join(__dirname, '../public/epoxy'),
   prefix: '/epoxy/',
-  decorateReply: false
+  decorateReply: false,
+  setHeaders: (res, path) => {
+    setStaticHeaders(res, path);
+  }
 });
 
 // Register static file serving for libcurl transport files
 await app.register(fastifyStatic, {
   root: join(__dirname, '../public/libcurl'),
   prefix: '/libcurl/',
-  decorateReply: false
+  decorateReply: false,
+  setHeaders: (res, path) => {
+    setStaticHeaders(res, path);
+  }
 });
 
 // Register static file serving for bare-as-module3 transport
 await app.register(fastifyStatic, {
   root: join(__dirname, '../public/baremod'),
   prefix: '/baremod/',
-  decorateReply: false
+  decorateReply: false,
+  setHeaders: (res, path) => {
+    setStaticHeaders(res, path);
+  }
 });
 
 // Register static file serving for general public files (must be last, with decorateReply true)
