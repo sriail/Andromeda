@@ -26,10 +26,21 @@ declare module '@tomphttp/bare-server-node' {
     close(): void;
   }
 
+  interface ConnectionLimiterOptions {
+    /** Maximum number of keep-alive connections per IP address. @default 10 */
+    maxConnectionsPerIP?: number;
+    /** Duration in seconds for the rate limit cooldown time window. @default 60 */
+    windowDuration?: number;
+    /** Block duration in seconds for during rate limit cooldown. @default 60 */
+    blockDuration?: number;
+  }
+
   interface BareServerOptions {
     logErrors?: boolean;
     localAddress?: string;
     maintainer?: { email?: string; website?: string };
+    /** Connection limiting options to prevent resource exhaustion attacks. */
+    connectionLimiter?: ConnectionLimiterOptions;
   }
 
   export function createBareServer(directory: string, options?: BareServerOptions): BareServer;
