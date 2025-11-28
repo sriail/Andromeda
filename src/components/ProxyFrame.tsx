@@ -78,6 +78,10 @@ let scramjetServiceWorkerRegistered = false;
 let scramjetServiceWorkerPromise: Promise<void> | null = null;
 let scramjetController: ScramjetController | null = null;
 
+// Track transport configuration to avoid reconfiguring
+let transportConfigured = false;
+let lastTransportConfig: { server: string; transport: string; wispServer: string; bareServer: string } | null = null;
+
 // Service worker activation timeout in milliseconds
 const SW_ACTIVATION_TIMEOUT_MS = 10000;
 
@@ -100,12 +104,12 @@ export default function ProxyFrame({
       setUseScramjetFrame(false);
       
       try {
-        // Set up the transport based on config
-        await setupTransport(config);
-        
         if (config.proxy === 'scramjet') {
-          // Initialize Scramjet
-          await registerScramjetServiceWorker();
+          // Initialize Scramjet - load transport and service worker in parallel
+          await Promise.all([
+            setupTransport(config),
+            registerScramjetServiceWorker()
+          ]);
           await initScramjetController();
           
           if (scramjetController) {
@@ -136,8 +140,11 @@ export default function ProxyFrame({
             }, 100);
           }
         } else {
-          // Register UV service worker
-          await registerUVServiceWorker();
+          // Ultraviolet - load transport and service worker in parallel
+          await Promise.all([
+            setupTransport(config),
+            registerUVServiceWorker()
+          ]);
           
           // Encode the URL for Ultraviolet
           const encoded = await encodeProxyUrl(url, config);
@@ -424,6 +431,23 @@ async function initScramjetController(): Promise<void> {
 }
 
 async function setupTransport(config: ProxyConfig): Promise<void> {
+  // Check if transport is already configured with same settings
+  const currentConfig = {
+    server: config.server,
+    transport: config.transport,
+    wispServer: config.wispServer || getDefaultWispServer(),
+    bareServer: config.bareServer || getDefaultBareServer()
+  };
+  
+  if (transportConfigured && lastTransportConfig &&
+      lastTransportConfig.server === currentConfig.server &&
+      lastTransportConfig.transport === currentConfig.transport &&
+      lastTransportConfig.wispServer === currentConfig.wispServer &&
+      lastTransportConfig.bareServer === currentConfig.bareServer) {
+    // Transport already configured with same settings
+    return;
+  }
+  
   // Load BareMux
   await loadScript('/baremux/index.js');
   
@@ -443,19 +467,20 @@ async function setupTransport(config: ProxyConfig): Promise<void> {
   // Set transport based on server mode
   if (config.server === 'bare') {
     // Use bare transport for direct bare server connection
-    const bareUrl = config.bareServer || getDefaultBareServer();
-    await connection.setTransport('/baremod/index.mjs', [bareUrl]);
+    await connection.setTransport('/baremod/index.mjs', [currentConfig.bareServer]);
   } else {
     // Use wisp-based transports
-    const wispUrl = config.wispServer || getDefaultWispServer();
-    
     if (config.transport === 'epoxy') {
-      await connection.setTransport('/epoxy/index.mjs', [{ wisp: wispUrl }]);
+      await connection.setTransport('/epoxy/index.mjs', [{ wisp: currentConfig.wispServer }]);
     } else {
       // Default to libcurl
-      await connection.setTransport('/libcurl/index.mjs', [{ wisp: wispUrl }]);
+      await connection.setTransport('/libcurl/index.mjs', [{ wisp: currentConfig.wispServer }]);
     }
   }
+  
+  // Cache the configuration
+  transportConfigured = true;
+  lastTransportConfig = currentConfig;
 }
 
 async function encodeProxyUrl(url: string, config: ProxyConfig): Promise<string> {
