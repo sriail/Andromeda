@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import SearchPage from './components/SearchPage';
-import ProxyFrame from './components/ProxyFrame';
+import ProxyFrame, { scramjetGoBack, scramjetGoForward, scramjetReload } from './components/ProxyFrame';
 import SettingsPage from './components/SettingsPage';
 import { ProxyConfig, SearchEngine } from './types/proxy';
 import { loadConfig, saveConfig } from './utils/proxySwitcher';
@@ -58,26 +58,39 @@ export default function App() {
   }, [config.searchEngine]);
 
   const handleBack = useCallback(() => {
-    // Will be handled by iframe navigation
-    const iframe = document.getElementById('proxy-frame') as HTMLIFrameElement;
-    if (iframe?.contentWindow) {
-      iframe.contentWindow.history.back();
+    // Use scramjet navigation if using scramjet proxy
+    if (config.proxy === 'scramjet') {
+      scramjetGoBack();
+    } else {
+      // Standard iframe navigation
+      const iframe = document.getElementById('proxy-frame') as HTMLIFrameElement;
+      if (iframe?.contentWindow) {
+        iframe.contentWindow.history.back();
+      }
     }
-  }, []);
+  }, [config.proxy]);
 
   const handleForward = useCallback(() => {
-    const iframe = document.getElementById('proxy-frame') as HTMLIFrameElement;
-    if (iframe?.contentWindow) {
-      iframe.contentWindow.history.forward();
+    if (config.proxy === 'scramjet') {
+      scramjetGoForward();
+    } else {
+      const iframe = document.getElementById('proxy-frame') as HTMLIFrameElement;
+      if (iframe?.contentWindow) {
+        iframe.contentWindow.history.forward();
+      }
     }
-  }, []);
+  }, [config.proxy]);
 
   const handleReload = useCallback(() => {
-    const iframe = document.getElementById('proxy-frame') as HTMLIFrameElement;
-    if (iframe?.contentWindow) {
-      iframe.contentWindow.location.reload();
+    if (config.proxy === 'scramjet') {
+      scramjetReload();
+    } else {
+      const iframe = document.getElementById('proxy-frame') as HTMLIFrameElement;
+      if (iframe?.contentWindow) {
+        iframe.contentWindow.location.reload();
+      }
     }
-  }, []);
+  }, [config.proxy]);
 
   const handleHome = useCallback(() => {
     setCurrentView('home');

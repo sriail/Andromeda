@@ -41,10 +41,34 @@ interface ScramjetControllerConfig {
   };
 }
 
+interface ScramjetFrame {
+  frame: HTMLIFrameElement;
+  go: (url: string) => void;
+  back: () => void;
+  forward: () => void;
+  reload: () => void;
+}
+
 interface ScramjetController {
-  init: () => void;
-  createFrame: () => { frame: HTMLIFrameElement; go: (url: string) => void };
+  init: () => Promise<void>;
+  createFrame: (frame?: HTMLIFrameElement) => ScramjetFrame;
   encodeUrl: (url: string) => string;
+}
+
+// Store the active scramjet frame for navigation
+let activeScramjetFrame: ScramjetFrame | null = null;
+
+// Expose navigation functions for the header buttons
+export function scramjetGoBack(): void {
+  activeScramjetFrame?.back();
+}
+
+export function scramjetGoForward(): void {
+  activeScramjetFrame?.forward();
+}
+
+export function scramjetReload(): void {
+  activeScramjetFrame?.reload();
 }
 
 // Track service worker registration state
@@ -54,6 +78,10 @@ let scramjetServiceWorkerRegistered = false;
 let scramjetServiceWorkerPromise: Promise<void> | null = null;
 let scramjetController: ScramjetController | null = null;
 
+// Track transport configuration to avoid reconfiguring
+let transportConfigured = false;
+let lastTransportConfig: { server: string; transport: string; wispServer: string; bareServer: string } | null = null;
+
 // Service worker activation timeout in milliseconds
 const SW_ACTIVATION_TIMEOUT_MS = 10000;
 
@@ -61,6 +89,7 @@ export default function ProxyFrame({
   url, 
   config, 
   onPageInfoUpdate,
+  onUrlChange: _onUrlChange, // Reserved for future URL tracking
 }: ProxyFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const scramjetFrameRef = useRef<HTMLIFrameElement | null>(null);
@@ -76,12 +105,12 @@ export default function ProxyFrame({
       setUseScramjetFrame(false);
       
       try {
-        // Set up the transport based on config
-        await setupTransport(config);
-        
         if (config.proxy === 'scramjet') {
-          // Initialize Scramjet
-          await registerScramjetServiceWorker();
+          // Initialize Scramjet - load transport and service worker in parallel
+          await Promise.all([
+            setupTransport(config),
+            registerScramjetServiceWorker()
+          ]);
           await initScramjetController();
           
           if (scramjetController) {
@@ -89,29 +118,35 @@ export default function ProxyFrame({
             setUseScramjetFrame(true);
             setEncodedUrl(''); // Clear regular iframe URL
             
-            // Create scramjet frame after render
-            setTimeout(() => {
+            // Create scramjet frame after DOM is ready using requestAnimationFrame
+            // This ensures the container element is rendered before we try to append to it
+            requestAnimationFrame(() => {
               if (scramjetController) {
-                const frame = scramjetController.createFrame();
-                frame.frame.id = 'proxy-frame';
-                frame.frame.className = 'w-full h-full border-0';
+                const scramFrame = scramjetController.createFrame();
+                scramFrame.frame.id = 'proxy-frame';
+                scramFrame.frame.className = 'w-full h-full border-0';
                 
                 // Remove any existing scramjet frames
                 const existingFrame = document.getElementById('scramjet-container');
                 if (existingFrame) {
                   existingFrame.innerHTML = '';
-                  existingFrame.appendChild(frame.frame);
+                  existingFrame.appendChild(scramFrame.frame);
                 }
                 
-                scramjetFrameRef.current = frame.frame;
-                frame.go(url);
+                scramjetFrameRef.current = scramFrame.frame;
+                // Store the active frame for navigation
+                activeScramjetFrame = scramFrame;
+                scramFrame.go(url);
                 setIsLoading(false);
               }
-            }, 100);
+            });
           }
         } else {
-          // Register UV service worker
-          await registerUVServiceWorker();
+          // Ultraviolet - load transport and service worker in parallel
+          await Promise.all([
+            setupTransport(config),
+            registerUVServiceWorker()
+          ]);
           
           // Encode the URL for Ultraviolet
           const encoded = await encodeProxyUrl(url, config);
@@ -134,6 +169,7 @@ export default function ProxyFrame({
         scramjetFrameRef.current.remove();
         scramjetFrameRef.current = null;
       }
+      activeScramjetFrame = null;
     };
   }, [url, config]);
 
@@ -392,10 +428,27 @@ async function initScramjetController(): Promise<void> {
     },
   });
   
-  scramjetController.init();
+  // Must await init() to properly set up IndexedDB
+  await scramjetController.init();
 }
 
 async function setupTransport(config: ProxyConfig): Promise<void> {
+  // Check if transport is already configured with same settings
+  const currentConfig = {
+    server: config.server,
+    transport: config.transport,
+    wispServer: config.wispServer || getDefaultWispServer(),
+    bareServer: config.bareServer || getDefaultBareServer()
+  };
+  
+  // Use JSON comparison for simplicity and maintainability
+  if (transportConfigured && 
+      lastTransportConfig && 
+      JSON.stringify(lastTransportConfig) === JSON.stringify(currentConfig)) {
+    // Transport already configured with same settings
+    return;
+  }
+  
   // Load BareMux
   await loadScript('/baremux/index.js');
   
@@ -415,19 +468,20 @@ async function setupTransport(config: ProxyConfig): Promise<void> {
   // Set transport based on server mode
   if (config.server === 'bare') {
     // Use bare transport for direct bare server connection
-    const bareUrl = config.bareServer || getDefaultBareServer();
-    await connection.setTransport('/baremod/index.mjs', [bareUrl]);
+    await connection.setTransport('/baremod/index.mjs', [currentConfig.bareServer]);
   } else {
     // Use wisp-based transports
-    const wispUrl = config.wispServer || getDefaultWispServer();
-    
     if (config.transport === 'epoxy') {
-      await connection.setTransport('/epoxy/index.mjs', [{ wisp: wispUrl }]);
+      await connection.setTransport('/epoxy/index.mjs', [{ wisp: currentConfig.wispServer }]);
     } else {
       // Default to libcurl
-      await connection.setTransport('/libcurl/index.mjs', [{ wisp: wispUrl }]);
+      await connection.setTransport('/libcurl/index.mjs', [{ wisp: currentConfig.wispServer }]);
     }
   }
+  
+  // Cache the configuration
+  transportConfigured = true;
+  lastTransportConfig = currentConfig;
 }
 
 async function encodeProxyUrl(url: string, config: ProxyConfig): Promise<string> {
