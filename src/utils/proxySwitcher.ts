@@ -9,6 +9,7 @@ const defaultConfig: ProxyConfig = {
   transport: 'libcurl',
   searchEngine: 'duckduckgo',
   wispServer: '',
+  bareServer: '',
   adBlocking: true
 };
 
@@ -19,6 +20,14 @@ export function getDefaultWispServer(): string {
   if (typeof window === 'undefined') return '';
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${protocol}//${location.host}/wisp/`;
+}
+
+/**
+ * Get the default bare server URL based on current location
+ */
+export function getDefaultBareServer(): string {
+  if (typeof window === 'undefined') return '';
+  return `${location.origin}/bare/`;
 }
 
 /**
@@ -35,6 +44,7 @@ export function loadConfig(): ProxyConfig {
         transport: isValidTransport(parsed.transport) ? parsed.transport : defaultConfig.transport,
         searchEngine: isValidSearchEngine(parsed.searchEngine) ? parsed.searchEngine : defaultConfig.searchEngine,
         wispServer: typeof parsed.wispServer === 'string' ? parsed.wispServer : defaultConfig.wispServer,
+        bareServer: typeof parsed.bareServer === 'string' ? parsed.bareServer : defaultConfig.bareServer,
         adBlocking: typeof parsed.adBlocking === 'boolean' ? parsed.adBlocking : defaultConfig.adBlocking
       };
     }
@@ -58,7 +68,7 @@ export function saveConfig(config: ProxyConfig): void {
 /**
  * Update a single configuration value
  */
-export function updateConfig(key: keyof ProxyConfig, value: string): ProxyConfig {
+export function updateConfig(key: keyof ProxyConfig, value: string | boolean): ProxyConfig {
   const config = loadConfig();
   
   switch (key) {
@@ -75,6 +85,26 @@ export function updateConfig(key: keyof ProxyConfig, value: string): ProxyConfig
     case 'transport':
       if (isValidTransport(value)) {
         config.transport = value;
+      }
+      break;
+    case 'searchEngine':
+      if (isValidSearchEngine(value)) {
+        config.searchEngine = value;
+      }
+      break;
+    case 'wispServer':
+      if (typeof value === 'string') {
+        config.wispServer = value;
+      }
+      break;
+    case 'bareServer':
+      if (typeof value === 'string') {
+        config.bareServer = value;
+      }
+      break;
+    case 'adBlocking':
+      if (typeof value === 'boolean') {
+        config.adBlocking = value;
       }
       break;
   }
@@ -95,7 +125,9 @@ export function resetConfig(): ProxyConfig {
  * Get the proxy prefix based on current configuration
  */
 export function getProxyPrefix(config: ProxyConfig): string {
-  // Only Ultraviolet is currently supported
+  if (config.proxy === 'scramjet') {
+    return '/~/scram/';
+  }
   return '/~/uv/';
 }
 
@@ -116,17 +148,15 @@ export function getBareUrl(): string {
 
 // Type guards
 function isValidProxy(value: unknown): value is ProxyType {
-  // Only ultraviolet is currently supported, but keep type compatibility
-  return value === 'ultraviolet';
+  return value === 'ultraviolet' || value === 'scramjet';
 }
 
 function isValidServer(value: unknown): value is ServerType {
-  // Only wisp is currently supported, but keep type compatibility
-  return value === 'wisp';
+  return value === 'wisp' || value === 'bare';
 }
 
 function isValidTransport(value: unknown): value is TransportType {
-  return value === 'epoxy' || value === 'libcurl';
+  return value === 'epoxy' || value === 'libcurl' || value === 'bare';
 }
 
 function isValidSearchEngine(value: unknown): value is SearchEngine {

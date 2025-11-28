@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Save, RotateCcw } from 'lucide-react';
 import { ProxyConfig, ProxyType, ServerType, TransportType, SearchEngine } from '../types/proxy';
-import { getDefaultWispServer } from '../utils/proxySwitcher';
+import { getDefaultWispServer, getDefaultBareServer } from '../utils/proxySwitcher';
 
 interface SettingsPageProps {
   config: ProxyConfig;
@@ -81,57 +81,116 @@ const SearchEngineOptions = [
   { name: 'Brave', value: 'brave' },
 ];
 
+const ProxyTypeOptions = [
+  { name: 'Ultraviolet', value: 'ultraviolet' },
+  { name: 'Scramjet (Experimental)', value: 'scramjet' },
+];
+
+const ServerTypeOptions = [
+  { name: 'Wisp Server', value: 'wisp' },
+  { name: 'Bare Server', value: 'bare' },
+];
+
+const TransportOptions = [
+  { name: 'Libcurl', value: 'libcurl' },
+  { name: 'Epoxy', value: 'epoxy' },
+];
+
 export default function SettingsPage({ 
   config, 
   onConfigChange, 
   onBack 
 }: SettingsPageProps) {
   const [wispServerInput, setWispServerInput] = useState(config.wispServer || getDefaultWispServer());
-  const [wispServerStatus, setWispServerStatus] = useState<{ message: string; type: 'info' | 'success' | 'error' } | null>(null);
+  const [bareServerInput, setBareServerInput] = useState(config.bareServer || getDefaultBareServer());
+  const [serverStatus, setServerStatus] = useState<{ message: string; type: 'info' | 'success' | 'error' } | null>(null);
 
   useEffect(() => {
-    // Update input when config changes
+    // Update inputs when config changes
     setWispServerInput(config.wispServer || getDefaultWispServer());
-  }, [config.wispServer]);
+    setBareServerInput(config.bareServer || getDefaultBareServer());
+  }, [config.wispServer, config.bareServer]);
 
-  const handleWispServerSave = () => {
-    const server = wispServerInput;
-    
-    if (!server.match(/^wss?:\/\/.*/)) {
-      setWispServerStatus({
-        message: "Invalid URL! URL's MUST start with wss:// or ws://",
-        type: 'error'
-      });
-    } else {
-      setWispServerStatus({
-        message: 'Wisp Server Set!',
-        type: 'success'
-      });
-      onConfigChange({ wispServer: wispServerInput });
+  const handleServerSave = () => {
+    if (config.server === 'wisp') {
+      const server = wispServerInput;
       
-      // Check if we should show ad blocking (only for default server)
-      const defaultServer = getDefaultWispServer();
-      if (wispServerInput === defaultServer) {
-        onConfigChange({ adBlocking: true });
+      if (!server.match(/^wss?:\/\/.*/)) {
+        setServerStatus({
+          message: "Invalid URL! Wisp URLs MUST start with wss:// or ws://",
+          type: 'error'
+        });
+      } else {
+        setServerStatus({
+          message: 'Wisp Server Set!',
+          type: 'success'
+        });
+        onConfigChange({ wispServer: wispServerInput });
+        
+        // Check if we should show ad blocking (only for default server)
+        const defaultServer = getDefaultWispServer();
+        if (wispServerInput === defaultServer) {
+          onConfigChange({ adBlocking: true });
+        }
+      }
+    } else {
+      const server = bareServerInput;
+      
+      if (!server.match(/^https?:\/\/.*/)) {
+        setServerStatus({
+          message: "Invalid URL! Bare server URLs MUST start with https:// or http://",
+          type: 'error'
+        });
+      } else {
+        setServerStatus({
+          message: 'Bare Server Set!',
+          type: 'success'
+        });
+        onConfigChange({ bareServer: bareServerInput });
       }
     }
     
     // Clear status after 4 seconds
-    setTimeout(() => setWispServerStatus(null), 4000);
+    setTimeout(() => setServerStatus(null), 4000);
   };
 
-  const handleWispServerReset = () => {
-    const resetVal = getDefaultWispServer();
-    setWispServerInput(resetVal);
-    onConfigChange({ wispServer: resetVal, adBlocking: true });
-    setWispServerStatus({
-      message: 'Wisp Server Reset!',
-      type: 'success'
-    });
-    setTimeout(() => setWispServerStatus(null), 4000);
+  const handleServerReset = () => {
+    if (config.server === 'wisp') {
+      const resetVal = getDefaultWispServer();
+      setWispServerInput(resetVal);
+      onConfigChange({ wispServer: resetVal, adBlocking: true });
+      setServerStatus({
+        message: 'Wisp Server Reset!',
+        type: 'success'
+      });
+    } else {
+      const resetVal = getDefaultBareServer();
+      setBareServerInput(resetVal);
+      onConfigChange({ bareServer: resetVal });
+      setServerStatus({
+        message: 'Bare Server Reset!',
+        type: 'success'
+      });
+    }
+    setTimeout(() => setServerStatus(null), 4000);
   };
 
   const isDefaultWispServer = wispServerInput === getDefaultWispServer();
+  const isDefaultBareServer = bareServerInput === getDefaultBareServer();
+
+  // Handle server type change - reset transport when switching to bare
+  const handleServerTypeChange = (value: string) => {
+    const serverType = value as ServerType;
+    onConfigChange({ server: serverType });
+    
+    // When switching to bare server, set transport to bare
+    if (serverType === 'bare') {
+      onConfigChange({ transport: 'bare' as TransportType });
+    } else if (config.transport === 'bare') {
+      // When switching from bare to wisp, reset transport to libcurl
+      onConfigChange({ transport: 'libcurl' });
+    }
+  };
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -153,29 +212,30 @@ export default function SettingsPage({
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="w-full flex-grow space-y-4">
-              {/* Proxy Type - Currently only Ultraviolet is supported */}
+              {/* Proxy Type */}
               <div>
                 <p className="text-sm font-medium text-gray-700 mb-2">Proxy Type</p>
                 <Dropdown
                   id="pSwitcher"
                   value={config.proxy}
-                  options={[
-                    { name: 'Ultraviolet', value: 'ultraviolet' }
-                  ]}
+                  options={ProxyTypeOptions}
                   onChange={(value) => onConfigChange({ proxy: value as ProxyType })}
                 />
+                {config.proxy === 'scramjet' && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    Scramjet is experimental and may not work with all websites.
+                  </p>
+                )}
               </div>
 
-              {/* Routing Mode - Currently only Wisp is fully supported */}
+              {/* Routing Mode / Server Type */}
               <div className="mt-2">
                 <p className="text-sm font-medium text-gray-700 mb-2">Routing Mode</p>
                 <Dropdown
                   id="rSwitcher"
                   value={config.server}
-                  options={[
-                    { name: 'Wisp Server', value: 'wisp' }
-                  ]}
-                  onChange={(value) => onConfigChange({ server: value as ServerType })}
+                  options={ServerTypeOptions}
+                  onChange={handleServerTypeChange}
                 />
               </div>
 
@@ -186,10 +246,7 @@ export default function SettingsPage({
                   <Dropdown
                     id="tSwitcher"
                     value={config.transport}
-                    options={[
-                      { name: 'Libcurl', value: 'libcurl' },
-                      { name: 'Epoxy', value: 'epoxy' }
-                    ]}
+                    options={TransportOptions}
                     onChange={(value) => onConfigChange({ transport: value as TransportType })}
                   />
                 </div>
@@ -214,7 +271,7 @@ export default function SettingsPage({
                     <Input
                       id="wispServerSwitcher"
                       value={wispServerInput}
-                      placeholder="Wisp server URL (EX: wss://radiusproxy.app/wisp/"
+                      placeholder="Wisp server URL (e.g., wss://example.com/wisp/)"
                       onChange={setWispServerInput}
                     />
                     
@@ -235,15 +292,15 @@ export default function SettingsPage({
                     )}
                   </div>
                   
-                  {/* Wisp Server Status */}
-                  {wispServerStatus && (
-                    <div className="mt-2 mb-2" id="wispServerInfo">
+                  {/* Server Status */}
+                  {serverStatus && (
+                    <div className="mt-2 mb-2" id="serverInfo">
                       <p className={`text-sm ${
-                        wispServerStatus.type === 'error' ? 'text-red-500' : 
-                        wispServerStatus.type === 'success' ? 'text-green-500' : 
+                        serverStatus.type === 'error' ? 'text-red-500' : 
+                        serverStatus.type === 'success' ? 'text-green-500' : 
                         'text-blue-500'
-                      }`} id="wispServerInfo-inner">
-                        {wispServerStatus.message}
+                      }`} id="serverInfo-inner">
+                        {serverStatus.message}
                       </p>
                     </div>
                   )}
@@ -251,16 +308,60 @@ export default function SettingsPage({
                   {/* Save and Reset buttons */}
                   <div className="mt-2 flex flex-row gap-4">
                     <Button
-                      id="wispServerSave"
+                      id="serverSave"
                       text="Save Changes"
                       icon="save"
-                      onClick={handleWispServerSave}
+                      onClick={handleServerSave}
                     />
                     <Button
-                      id="wispServerReset"
+                      id="serverReset"
                       text="Reset"
                       icon="reset"
-                      onClick={handleWispServerReset}
+                      onClick={handleServerReset}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Bare Server Section - only show when using Bare */}
+              {config.server === 'bare' && (
+                <div className="mt-2 w-80" id="bareServerSection">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-2">Bare Server</p>
+                    <Input
+                      id="bareServerSwitcher"
+                      value={bareServerInput}
+                      placeholder="Bare server URL (e.g., https://example.com/bare/)"
+                      onChange={setBareServerInput}
+                    />
+                  </div>
+                  
+                  {/* Server Status */}
+                  {serverStatus && (
+                    <div className="mt-2 mb-2" id="serverInfo">
+                      <p className={`text-sm ${
+                        serverStatus.type === 'error' ? 'text-red-500' : 
+                        serverStatus.type === 'success' ? 'text-green-500' : 
+                        'text-blue-500'
+                      }`} id="serverInfo-inner">
+                        {serverStatus.message}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Save and Reset buttons */}
+                  <div className="mt-2 flex flex-row gap-4">
+                    <Button
+                      id="serverSave"
+                      text="Save Changes"
+                      icon="save"
+                      onClick={handleServerSave}
+                    />
+                    <Button
+                      id="serverReset"
+                      text="Reset"
+                      icon="reset"
+                      onClick={handleServerReset}
                     />
                   </div>
                 </div>
