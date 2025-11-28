@@ -17,7 +17,7 @@ export default function SearchPage({ onSearch }: SearchPageProps) {
           />
           <h1 className="text-4xl font-medium text-gray-900">Andromeda</h1>
           <p className="text-gray-500 text-center">
-            A simple, fast web proxy
+            A simple, fast, and clean web proxy
           </p>
         </div>
 
@@ -25,7 +25,7 @@ export default function SearchPage({ onSearch }: SearchPageProps) {
         <div className="w-full">
           <SearchBar 
             onSearch={onSearch} 
-            placeholder="Search or enter URL..."
+            placeholder="Search or enter URL"
           />
         </div>
       </div>
