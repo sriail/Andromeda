@@ -68,7 +68,7 @@ export function saveConfig(config: ProxyConfig): void {
 /**
  * Update a single configuration value
  */
-export function updateConfig(key: keyof ProxyConfig, value: string): ProxyConfig {
+export function updateConfig(key: keyof ProxyConfig, value: string | boolean): ProxyConfig {
   const config = loadConfig();
   
   switch (key) {
@@ -85,6 +85,26 @@ export function updateConfig(key: keyof ProxyConfig, value: string): ProxyConfig
     case 'transport':
       if (isValidTransport(value)) {
         config.transport = value;
+      }
+      break;
+    case 'searchEngine':
+      if (isValidSearchEngine(value)) {
+        config.searchEngine = value;
+      }
+      break;
+    case 'wispServer':
+      if (typeof value === 'string') {
+        config.wispServer = value;
+      }
+      break;
+    case 'bareServer':
+      if (typeof value === 'string') {
+        config.bareServer = value;
+      }
+      break;
+    case 'adBlocking':
+      if (typeof value === 'boolean') {
+        config.adBlocking = value;
       }
       break;
   }
