@@ -58,6 +58,8 @@ const serverFactory: FastifyServerFactory = (
         if (bareServer.shouldRoute(req)) {
           bareServer.routeUpgrade(req, socket as Socket, head);
         } else if (req.url?.endsWith('/wisp/') || req.url?.endsWith('/adblock/')) {
+          // Handle wisp and adblock WebSocket connections
+          // Using endsWith to match the exact endpoint paths
           wisp.routeRequest(req, socket as Socket, head);
         }
       } catch (error) {
@@ -100,8 +102,12 @@ const app = Fastify({
 await app.register(fastifyStatic, {
   root: fileURLToPath(new URL('../public', import.meta.url)),
   setHeaders: (res, path) => {
+    // Normalize path separators for cross-platform compatibility
+    const normalizedPath = path.replace(/\\/g, '/');
     // Set Service-Worker-Allowed header for JS files in uv/scram/baremux directories
-    if (path.includes('/uv/') || path.includes('/scram/') || path.includes('/baremux/')) {
+    if (normalizedPath.startsWith('/uv/') || normalizedPath.includes('/uv/') ||
+        normalizedPath.startsWith('/scram/') || normalizedPath.includes('/scram/') ||
+        normalizedPath.startsWith('/baremux/') || normalizedPath.includes('/baremux/')) {
       res.setHeader('Service-Worker-Allowed', '/');
     }
     // Set proper content type for JavaScript files
@@ -116,6 +122,7 @@ await app.register(fastifyStatic, {
 });
 
 // Register middleware support for connect-style handlers
+// This enables Express-style middleware integration for future extensibility
 await app.register(fastifyMiddie);
 
 // SPA fallback - serve index.html for all non-file routes
