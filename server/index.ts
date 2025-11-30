@@ -13,15 +13,30 @@ import type { Socket } from 'node:net';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 
-// Create Bare Server with connection limiter to prevent "too many keepalive requests" error
+// Create Bare Server with optimized settings for better performance and stability
 const bareServer = createBareServer('/bare/', {
+  // Disable local blocking to allow all requests (proxy use case)
+  blockLocal: false,
+  // Connection limiter settings optimized for high-traffic proxy usage
   connectionLimiter: {
-    // Optimized for sites with heavy cookies and complex browser services
-    maxConnectionsPerIP: parseInt(process.env.BARE_MAX_CONNECTIONS_PER_IP || '1000', 10),
+    // Higher limit for proxy use - sites with heavy cookies and complex browser services
+    maxConnectionsPerIP: parseInt(process.env.BARE_MAX_CONNECTIONS_PER_IP || '2000', 10),
     windowDuration: parseInt(process.env.BARE_WINDOW_DURATION || '60', 10),
-    blockDuration: parseInt(process.env.BARE_BLOCK_DURATION || '30', 10)
-  }
+    blockDuration: parseInt(process.env.BARE_BLOCK_DURATION || '10', 10)
+  },
+  // Enable legacy support for older bare clients
+  legacySupport: true,
+  // Log errors for debugging in development
+  logErrors: process.env.NODE_ENV === 'development'
 });
+
+// Helper function to check if URL matches a path pattern (handles query strings)
+function matchesPath(url: string | undefined, pattern: string): boolean {
+  if (!url) return false;
+  // Remove query string for matching
+  const pathOnly = url.split('?')[0];
+  return pathOnly === pattern || pathOnly.endsWith(pattern);
+}
 
 // Custom server factory for Fastify to integrate Bare server and Wisp
 const serverFactory: FastifyServerFactory = (
@@ -29,12 +44,19 @@ const serverFactory: FastifyServerFactory = (
 ): RawServerDefault => {
   const server = createServer({
     // Increase header size limit for sites with heavy cookies
-    maxHeaderSize: 32768, // 32KB
+    maxHeaderSize: 65536, // 64KB for heavy cookie sites
     // Enable keep-alive for better connection stability
     keepAlive: true,
-    keepAliveTimeout: 65000, // 65 seconds
+    keepAliveTimeout: 120000, // 120 seconds
     // Increase timeout for long-running requests
-    requestTimeout: 120000 // 120 seconds
+    requestTimeout: 300000, // 5 minutes for slow sites
+    // Disable request body timeout for streaming
+    headersTimeout: 120000 // 2 minutes for headers
+  });
+
+  // Set TCP no-delay for faster response streaming (reduces latency)
+  server.on('connection', (socket) => {
+    socket.setNoDelay(true);
   });
 
   server
@@ -55,11 +77,13 @@ const serverFactory: FastifyServerFactory = (
     })
     .on('upgrade', (req, socket, head) => {
       try {
+        // Set no-delay on WebSocket connections for faster data transfer
+        (socket as Socket).setNoDelay(true);
+        
         if (bareServer.shouldRoute(req)) {
           bareServer.routeUpgrade(req, socket as Socket, head);
-        } else if (req.url?.endsWith('/wisp/') || req.url?.endsWith('/adblock/')) {
+        } else if (matchesPath(req.url, '/wisp/') || matchesPath(req.url, '/adblock/')) {
           // Handle wisp and adblock WebSocket connections
-          // Using endsWith to match the exact endpoint paths
           wisp.routeRequest(req, socket as Socket, head);
         }
       } catch (error) {
@@ -85,10 +109,10 @@ const app = Fastify({
   logger: process.env.LOG_LEVEL === 'debug' || process.env.NODE_ENV === 'development',
   serverFactory: serverFactory,
   // Increase body size limits for sites with heavy data
-  bodyLimit: 10485760, // 10MB
-  // Improve connection handling
-  connectionTimeout: 120000, // 120 seconds
-  keepAliveTimeout: 65000, // 65 seconds
+  bodyLimit: 52428800, // 50MB for larger uploads
+  // Improve connection handling with longer timeouts
+  connectionTimeout: 300000, // 5 minutes
+  keepAliveTimeout: 120000, // 2 minutes
   // Enable trust proxy for proper IP handling behind reverse proxies
   trustProxy: true,
   // Router options for better URL handling
@@ -151,8 +175,8 @@ app.listen({ port: PORT, host: '0.0.0.0' })
   .then(() => {
     console.log(`Server listening on http://localhost:${PORT}/`);
     console.log(`Server also listening on http://0.0.0.0:${PORT}/`);
-    console.log(`Connection timeout: 120s, Keep-alive timeout: 65s`);
-    console.log(`Max header size: 32KB, Body limit: 10MB`);
+    console.log(`Connection timeout: 5min, Keep-alive timeout: 2min`);
+    console.log(`Max header size: 64KB, Body limit: 50MB`);
   })
   .catch((error) => {
     console.error('Failed to start server:', error);
