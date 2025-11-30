@@ -18,6 +18,8 @@ async function initScramjet() {
       // Pre-load config once during initialization
       await scramjet.loadConfig();
     } catch (error) {
+      // Reset initPromise to allow retry on next attempt
+      initPromise = null;
       console.error('Failed to initialize Scramjet:', error);
       throw error;
     }

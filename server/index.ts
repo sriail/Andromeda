@@ -30,12 +30,15 @@ const bareServer = createBareServer('/bare/', {
   logErrors: process.env.NODE_ENV === 'development'
 });
 
-// Helper function to check if URL matches a path pattern (handles query strings)
-function matchesPath(url: string | undefined, pattern: string): boolean {
+// Helper function to check if URL matches a WebSocket endpoint path
+// The paths we care about are /wisp/ and /adblock/ - these are exact endpoints
+function matchesWsEndpoint(url: string | undefined, endpoint: string): boolean {
   if (!url) return false;
   // Remove query string for matching
   const pathOnly = url.split('?')[0];
-  return pathOnly === pattern || pathOnly.endsWith(pattern);
+  // Match exact path or path with trailing content after the endpoint
+  // e.g., /wisp/ or /wisp/something matches /wisp/
+  return pathOnly === endpoint || pathOnly.startsWith(endpoint);
 }
 
 // Custom server factory for Fastify to integrate Bare server and Wisp
@@ -82,7 +85,7 @@ const serverFactory: FastifyServerFactory = (
         
         if (bareServer.shouldRoute(req)) {
           bareServer.routeUpgrade(req, socket as Socket, head);
-        } else if (matchesPath(req.url, '/wisp/') || matchesPath(req.url, '/adblock/')) {
+        } else if (matchesWsEndpoint(req.url, '/wisp/') || matchesWsEndpoint(req.url, '/adblock/')) {
           // Handle wisp and adblock WebSocket connections
           wisp.routeRequest(req, socket as Socket, head);
         }
