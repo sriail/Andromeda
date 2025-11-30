@@ -11,7 +11,7 @@ export default function SearchPage({ onSearch }: SearchPageProps) {
         {/* Logo */}
         <div className="flex flex-col items-center gap-4">
           <img 
-            src="/images/andromeda_logo.png" 
+            src="/images/andromeda_logo_dark.png" 
             alt="Andromeda" 
             className="w-24 h-24"
           />
