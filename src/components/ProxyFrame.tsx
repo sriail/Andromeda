@@ -375,6 +375,8 @@ async function registerScramjetServiceWorker(): Promise<void> {
       // Check if SW is already activated
       if (registration.active?.state === 'activated') {
         scramjetServiceWorkerRegistered = true;
+        // Wait for the service worker to be ready and controlling the page
+        await navigator.serviceWorker.ready;
         return;
       }
 
@@ -404,6 +406,9 @@ async function registerScramjetServiceWorker(): Promise<void> {
         });
       }
 
+      // Wait for the service worker to be ready and controlling the page
+      await navigator.serviceWorker.ready;
+      
       scramjetServiceWorkerRegistered = true;
     } catch (err) {
       scramjetServiceWorkerPromise = null;

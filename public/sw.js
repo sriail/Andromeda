@@ -30,14 +30,17 @@ async function ensureScramjetConfig() {
   if (sjConfigLoaded) return true;
   if (sjConfigPromise) return sjConfigPromise;
   
-  sjConfigPromise = sj.loadConfig().then(() => {
-    sjConfigLoaded = true;
-    return true;
-  }).catch(err => {
-    console.error('Failed to load scramjet config:', err);
-    sjConfigPromise = null;
-    return false;
-  });
+  sjConfigPromise = (async () => {
+    try {
+      await sj.loadConfig();
+      sjConfigLoaded = true;
+      return true;
+    } catch (err) {
+      console.warn('Scramjet config load failed:', err.message || err);
+      sjConfigPromise = null;
+      return false;
+    }
+  })();
   
   return sjConfigPromise;
 }
@@ -155,47 +158,31 @@ async function injectInterceptorScript(response) {
   }
 }
 
-// Check if URL is a proxied request
-function isProxiedUrl(url) {
-  const uvPrefix = (typeof __uv$config !== 'undefined' && __uv$config?.prefix) || '/~/uv/';
-  const sjPrefix = '/~/scramjet/';
-  return url.includes(uvPrefix) || url.includes(sjPrefix);
-}
-
 self.addEventListener('fetch', function (event) {
-  const url = event.request.url;
-  
-  // Fast path: only intercept proxy requests
-  // Regular requests should pass through without interception
-  if (!isProxiedUrl(url)) {
-    return; // Don't call event.respondWith() - let browser handle normally
-  }
-  
-  // Determine which proxy to use
-  const uvPrefix = (typeof __uv$config !== 'undefined' && __uv$config?.prefix) || '/~/uv/';
-  const isUvRequest = url.includes(uvPrefix);
-  
   event.respondWith(
     (async () => {
       try {
+        // Load scramjet config (needed to check routing)
+        await ensureScramjetConfig();
+        
+        const url = event.request.url;
+        
+        // Check if this is a UV or Scramjet request
+        const uvPrefix = (typeof __uv$config !== 'undefined' && __uv$config?.prefix) || '/~/uv/';
+        const isUvRequest = url.startsWith(location.origin + uvPrefix);
+        const isSjRequest = sjConfigLoaded && sj.route(event);
+        
         let response;
         
         if (isUvRequest) {
           // Handle Ultraviolet request
           response = await uv.fetch(event);
-        } else {
+        } else if (isSjRequest) {
           // Handle Scramjet request
-          const configLoaded = await ensureScramjetConfig();
-          if (!configLoaded) {
-            // If config failed to load, try to fetch normally
-            return await fetch(event.request);
-          }
-          
-          if (sj.route(event)) {
-            response = await sj.fetch(event);
-          } else {
-            response = await fetch(event.request);
-          }
+          response = await sj.fetch(event);
+        } else {
+          // Not a proxy request - pass through to regular fetch
+          return await fetch(event.request);
         }
 
         // Inject interceptor script into proxied HTML responses
