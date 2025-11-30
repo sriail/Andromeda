@@ -39,6 +39,10 @@ declare module '@tomphttp/bare-server-node' {
     logErrors?: boolean;
     localAddress?: string;
     maintainer?: { email?: string; website?: string };
+    /** If local IP addresses/DNS records should be blocked. @default true */
+    blockLocal?: boolean;
+    /** If legacy clients should be supported (v1 & v2). @default true */
+    legacySupport?: boolean;
     /** Connection limiting options to prevent resource exhaustion attacks. */
     connectionLimiter?: ConnectionLimiterOptions;
   }

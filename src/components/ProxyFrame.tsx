@@ -85,6 +85,11 @@ let lastTransportConfig: { server: string; transport: string; wispServer: string
 // Service worker activation timeout in milliseconds
 const SW_ACTIVATION_TIMEOUT_MS = 10000;
 
+// Utility function to extract error message
+function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Unknown error';
+}
+
 export default function ProxyFrame({ 
   url, 
   config, 
@@ -154,7 +159,7 @@ export default function ProxyFrame({
         }
       } catch (err) {
         console.error('Error initializing proxy:', err);
-        setError(err instanceof Error ? err.message : 'Failed to initialize proxy');
+        setError(getErrorMessage(err) || 'Failed to initialize proxy');
         setIsLoading(false);
       }
     };
@@ -334,7 +339,7 @@ async function registerUVServiceWorker(): Promise<void> {
       uvServiceWorkerRegistered = true;
     } catch (err) {
       uvServiceWorkerPromise = null;
-      throw new Error(`Failed to register UV service worker: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      throw new Error(`Failed to register UV service worker: ${getErrorMessage(err)}`);
     }
   })();
 
@@ -400,7 +405,7 @@ async function registerScramjetServiceWorker(): Promise<void> {
       scramjetServiceWorkerRegistered = true;
     } catch (err) {
       scramjetServiceWorkerPromise = null;
-      throw new Error(`Failed to register Scramjet service worker: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      throw new Error(`Failed to register Scramjet service worker: ${getErrorMessage(err)}`);
     }
   })();
 
@@ -429,11 +434,17 @@ async function initScramjetController(): Promise<void> {
   });
   
   // Must await init() to properly set up IndexedDB
-  await scramjetController.init();
+  try {
+    await scramjetController.init();
+  } catch (err) {
+    // Reset controller on init failure so we can retry
+    scramjetController = null;
+    throw new Error(`Scramjet initialization failed: ${getErrorMessage(err)}`);
+  }
 }
 
 async function setupTransport(config: ProxyConfig): Promise<void> {
-  // Check if transport is already configured with same settings
+  // Build current config for comparison
   const currentConfig = {
     server: config.server,
     transport: config.transport,
@@ -441,15 +452,12 @@ async function setupTransport(config: ProxyConfig): Promise<void> {
     bareServer: config.bareServer || getDefaultBareServer()
   };
   
-  // Use JSON comparison for simplicity and maintainability
-  if (transportConfigured && 
+  // Use JSON comparison for simplicity - force reconfiguration if settings differ
+  const configsMatch = transportConfigured && 
       lastTransportConfig && 
-      JSON.stringify(lastTransportConfig) === JSON.stringify(currentConfig)) {
-    // Transport already configured with same settings
-    return;
-  }
+      JSON.stringify(lastTransportConfig) === JSON.stringify(currentConfig);
   
-  // Load BareMux
+  // Always load BareMux to ensure connection is available
   await loadScript('/baremux/index.js');
   
   const BareMuxConnection = window.BareMuxConnection || window.BareMux?.BareMuxConnection;
@@ -462,26 +470,54 @@ async function setupTransport(config: ProxyConfig): Promise<void> {
   try {
     connection = new BareMuxConnection('/baremux/worker.js');
   } catch (err) {
-    throw new Error(`Failed to create BareMux connection: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    throw new Error(`Failed to create BareMux connection: ${getErrorMessage(err)}`);
   }
 
-  // Set transport based on server mode
-  if (config.server === 'bare') {
-    // Use bare transport for direct bare server connection
-    await connection.setTransport('/baremod/index.mjs', [currentConfig.bareServer]);
-  } else {
-    // Use wisp-based transports
-    if (config.transport === 'epoxy') {
-      await connection.setTransport('/epoxy/index.mjs', [{ wisp: currentConfig.wispServer }]);
-    } else {
-      // Default to libcurl
-      await connection.setTransport('/libcurl/index.mjs', [{ wisp: currentConfig.wispServer }]);
+  // Check if transport needs to be (re)configured
+  // We verify by checking current transport in worker
+  let needsReconfigure = !configsMatch;
+  
+  if (!needsReconfigure) {
+    try {
+      const currentTransport = await connection.getTransport();
+      // If transport is undefined or empty, we need to configure
+      if (!currentTransport) {
+        needsReconfigure = true;
+      }
+    } catch {
+      // Error getting transport means we need to reconfigure
+      needsReconfigure = true;
     }
   }
   
-  // Cache the configuration
-  transportConfigured = true;
-  lastTransportConfig = currentConfig;
+  if (!needsReconfigure) {
+    return; // Transport already configured correctly
+  }
+
+  // Set transport based on server mode
+  try {
+    if (config.server === 'bare') {
+      // Use bare transport for direct bare server connection
+      await connection.setTransport('/baremod/index.mjs', [currentConfig.bareServer]);
+    } else {
+      // Use wisp-based transports
+      if (config.transport === 'epoxy') {
+        await connection.setTransport('/epoxy/index.mjs', [{ wisp: currentConfig.wispServer }]);
+      } else {
+        // Default to libcurl
+        await connection.setTransport('/libcurl/index.mjs', [{ wisp: currentConfig.wispServer }]);
+      }
+    }
+    
+    // Cache the configuration after successful setup
+    transportConfigured = true;
+    lastTransportConfig = currentConfig;
+  } catch (err) {
+    // Reset cache on error so we can retry
+    transportConfigured = false;
+    lastTransportConfig = null;
+    throw new Error(`Failed to set transport: ${getErrorMessage(err)}`);
+  }
 }
 
 async function encodeProxyUrl(url: string, config: ProxyConfig): Promise<string> {
