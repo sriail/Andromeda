@@ -158,31 +158,47 @@ async function injectInterceptorScript(response) {
   }
 }
 
+// Check if URL might be a proxy request (quick check before full routing)
+function mightBeProxyRequest(url) {
+  // Check for UV prefix
+  const uvPrefix = (typeof __uv$config !== 'undefined' && __uv$config?.prefix) || '/~/uv/';
+  if (url.includes(uvPrefix)) return true;
+  
+  // Check for Scramjet prefix patterns (the default prefix is /~/scramjet/)
+  if (url.includes('/~/scramjet/') || url.includes('/$scramjet/')) return true;
+  
+  return false;
+}
+
 self.addEventListener('fetch', function (event) {
+  const url = event.request.url;
+  
+  // Fast path: if URL doesn't look like a proxy request, pass through immediately
+  if (!mightBeProxyRequest(url)) {
+    return; // Let browser handle normally
+  }
+  
   event.respondWith(
     (async () => {
       try {
-        // Load scramjet config (needed to check routing)
-        await ensureScramjetConfig();
-        
-        const url = event.request.url;
-        
-        // Check if this is a UV or Scramjet request
+        // Check if this is a UV request
         const uvPrefix = (typeof __uv$config !== 'undefined' && __uv$config?.prefix) || '/~/uv/';
         const isUvRequest = url.startsWith(location.origin + uvPrefix);
-        const isSjRequest = sjConfigLoaded && sj.route(event);
         
         let response;
         
         if (isUvRequest) {
           // Handle Ultraviolet request
           response = await uv.fetch(event);
-        } else if (isSjRequest) {
-          // Handle Scramjet request
-          response = await sj.fetch(event);
         } else {
-          // Not a proxy request - pass through to regular fetch
-          return await fetch(event.request);
+          // Try Scramjet
+          const configLoaded = await ensureScramjetConfig();
+          if (configLoaded && sj.route(event)) {
+            response = await sj.fetch(event);
+          } else {
+            // Not a recognized proxy request
+            return await fetch(event.request);
+          }
         }
 
         // Inject interceptor script into proxied HTML responses
