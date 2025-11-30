@@ -164,8 +164,8 @@ function mightBeProxyRequest(url) {
   const uvPrefix = (typeof __uv$config !== 'undefined' && __uv$config?.prefix) || '/~/uv/';
   if (url.includes(uvPrefix)) return true;
   
-  // Check for Scramjet prefix patterns (the default prefix is /~/scramjet/)
-  if (url.includes('/~/scramjet/') || url.includes('/$scramjet/')) return true;
+  // Check for Scramjet prefix (matches prefix in controller config)
+  if (url.includes('/~/scramjet/')) return true;
   
   return false;
 }

@@ -163,12 +163,12 @@ await app.register(fastifyStatic, {
     }
     // Add cache control for static assets
     if (process.env.NODE_ENV === 'production') {
-      // Long cache for versioned assets
-      if (path.includes('/assets/') || path.endsWith('.wasm')) {
+      // Long cache for versioned assets (Vite generates hashed filenames in /assets/)
+      if (normalizedPath.includes('/assets/') || path.endsWith('.wasm')) {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       }
       // Short cache for service worker and config files (they need to update)
-      else if (path.endsWith('sw.js') || path.includes('config')) {
+      else if (path.endsWith('sw.js') || normalizedPath.includes('/uv/uv.config') || normalizedPath.endsWith('.config.js')) {
         res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
       }
     }

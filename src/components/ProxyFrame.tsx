@@ -34,10 +34,21 @@ declare global {
 }
 
 interface ScramjetControllerConfig {
+  prefix?: string;
   files: {
     wasm: string;
     all: string;
     sync: string;
+  };
+  flags?: {
+    rewriterLogs?: boolean;
+    serviceworkers?: boolean;
+    captureErrors?: boolean;
+    cleanErrors?: boolean;
+    strictRewrites?: boolean;
+    syncxhr?: boolean;
+    scramitize?: boolean;
+    allowFailedIntercepts?: boolean;
   };
 }
 
