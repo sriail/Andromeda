@@ -122,19 +122,35 @@ const app = Fastify({
   routerOptions: {
     ignoreDuplicateSlashes: true,
     ignoreTrailingSlash: true
-  }
+  },
+  // Disable request ID header generation for better performance
+  requestIdHeader: false,
+  // Disable request ID logging for better performance
+  disableRequestLogging: process.env.NODE_ENV !== 'development'
 });
 
 // Register static file serving for public files with custom headers for service workers
 await app.register(fastifyStatic, {
   root: fileURLToPath(new URL('../public', import.meta.url)),
+  // Enable caching for static assets to improve performance
+  maxAge: process.env.NODE_ENV === 'production' ? 86400000 : 0, // 1 day in production
+  // Disable immutable for development
+  immutable: process.env.NODE_ENV === 'production',
+  // Enable etag for caching
+  etag: true,
+  // Enable lastModified for caching
+  lastModified: true,
   setHeaders: (res, path) => {
     // Normalize path separators for cross-platform compatibility
     const normalizedPath = path.replace(/\\/g, '/');
     // Set Service-Worker-Allowed header for JS files in uv/scram/baremux directories
     if (normalizedPath.startsWith('/uv/') || normalizedPath.includes('/uv/') ||
         normalizedPath.startsWith('/scram/') || normalizedPath.includes('/scram/') ||
-        normalizedPath.startsWith('/baremux/') || normalizedPath.includes('/baremux/')) {
+        normalizedPath.startsWith('/baremux/') || normalizedPath.includes('/baremux/') ||
+        normalizedPath.startsWith('/epoxy/') || normalizedPath.includes('/epoxy/') ||
+        normalizedPath.startsWith('/libcurl/') || normalizedPath.includes('/libcurl/') ||
+        normalizedPath.startsWith('/baremod/') || normalizedPath.includes('/baremod/') ||
+        normalizedPath.endsWith('sw.js')) {
       res.setHeader('Service-Worker-Allowed', '/');
     }
     // Set proper content type for JavaScript files
@@ -144,6 +160,17 @@ await app.register(fastifyStatic, {
     // Set proper content type for WebAssembly files
     if (path.endsWith('.wasm')) {
       res.setHeader('Content-Type', 'application/wasm');
+    }
+    // Add cache control for static assets
+    if (process.env.NODE_ENV === 'production') {
+      // Long cache for versioned assets
+      if (path.includes('/assets/') || path.endsWith('.wasm')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+      // Short cache for service worker and config files (they need to update)
+      else if (path.endsWith('sw.js') || path.includes('config')) {
+        res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+      }
     }
   }
 });

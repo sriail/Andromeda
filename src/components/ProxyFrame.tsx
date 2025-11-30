@@ -111,12 +111,11 @@ export default function ProxyFrame({
       
       try {
         if (config.proxy === 'scramjet') {
-          // Initialize Scramjet - load transport and service worker in parallel
-          await Promise.all([
-            setupTransport(config),
-            registerScramjetServiceWorker()
-          ]);
+          // Initialize Scramjet - MUST init controller BEFORE registering service worker
+          // The controller sets up IndexedDB schema that the service worker needs
+          await setupTransport(config);
           await initScramjetController();
+          await registerScramjetServiceWorker();
           
           if (scramjetController) {
             // Create and use scramjet frame
@@ -278,6 +277,7 @@ async function loadScramjetScripts(): Promise<void> {
 }
 
 async function registerUVServiceWorker(): Promise<void> {
+  // Both UV and Scramjet now use the same unified service worker at root scope
   // Return early if already registered or registration in progress
   if (uvServiceWorkerRegistered) {
     return;
@@ -296,15 +296,13 @@ async function registerUVServiceWorker(): Promise<void> {
       // Load UV bundle and config scripts
       await loadUVScripts();
       
-      // Register the UV service worker (use sw.js which imports the bundle, config, and uv.sw.js)
-      const registration = await navigator.serviceWorker.register('/uv/sw.js', {
-        scope: '/~/uv/',
+      // Register the unified service worker at root scope
+      // This SW handles both UV and Scramjet requests
+      const registration = await navigator.serviceWorker.register('/sw.js', {
+        scope: '/',
       });
 
       // Wait for the service worker to activate
-      // Note: We can't use navigator.serviceWorker.ready here because it waits for
-      // a controller for the *current* page's scope, but UV SW has scope /~/uv/
-      
       // Check if SW is already activated
       if (registration.active?.state === 'activated') {
         uvServiceWorkerRegistered = true;
@@ -347,6 +345,7 @@ async function registerUVServiceWorker(): Promise<void> {
 }
 
 async function registerScramjetServiceWorker(): Promise<void> {
+  // Both UV and Scramjet now use the same unified service worker at root scope
   // Return early if already registered or registration in progress
   if (scramjetServiceWorkerRegistered) {
     return;
@@ -362,10 +361,13 @@ async function registerScramjetServiceWorker(): Promise<void> {
     }
 
     try {
-      // Load Scramjet scripts
-      await loadScramjetScripts();
+      // Load both UV and Scramjet scripts since we use unified SW
+      await Promise.all([
+        loadUVScripts(),
+        loadScramjetScripts()
+      ]);
       
-      // Register the Scramjet service worker
+      // Register the unified service worker at root scope
       const registration = await navigator.serviceWorker.register('/sw.js', {
         scope: '/',
       });
@@ -426,11 +428,22 @@ async function initScramjetController(): Promise<void> {
   const { ScramjetController } = window.$scramjetLoadController();
   
   scramjetController = new ScramjetController({
+    prefix: '/~/scramjet/',
     files: {
       wasm: '/scram/scramjet.wasm.wasm',
       all: '/scram/scramjet.all.js',
       sync: '/scram/scramjet.sync.js',
     },
+    flags: {
+      rewriterLogs: false,
+      serviceworkers: true,
+      captureErrors: true,
+      cleanErrors: false,
+      strictRewrites: false,
+      syncxhr: true,
+      scramitize: true,
+      allowFailedIntercepts: true
+    }
   });
   
   // Must await init() to properly set up IndexedDB
