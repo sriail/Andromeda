@@ -118,7 +118,7 @@ const app = Fastify({
   keepAliveTimeout: 120000, // 2 minutes
   // Enable trust proxy for proper IP handling behind reverse proxies
   trustProxy: true,
-  // Router options for better URL handling
+  // Router options for URL handling
   routerOptions: {
     ignoreDuplicateSlashes: true,
     ignoreTrailingSlash: true
